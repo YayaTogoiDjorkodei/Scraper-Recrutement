@@ -7,8 +7,6 @@ from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright # pilote un vrai navigateur Chromium en arrière-plan, capable d'exécuter le JavaScript
 
 BASE_URL = "https://www.linkedin.com/"
-#https://www.linkedin.com/jobs/
-#BASE_URL = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
 
 HEADERS = {
    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
