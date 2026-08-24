@@ -1,12 +1,35 @@
 import tkinter as tk
-import random                           # pour un chois aleatior sur le adress  IP
+import random                                   # pour un chois aleatior sur le adress  IP
 import time 
-import threading                        # utilisation de thread
+import threading                                # utilisation de thread
 import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright # pilote un vrai navigateur Chromium en arrière-plan, capable d'exécuter le JavaScript
-from fake_useragent import UserAgent        # choisir un user aleatoir valide a chaque envoi de requet
-from urllib.parse import quote_plus         #suprimer les space saisi par lutilisateur 
+from fake_useragent import UserAgent            # choisir un user aleatoir valide a chaque envoi de requet
+from urllib.parse import quote_plus             #suprimer les space saisi par lutilisateur 
+from urllib.parse import urlparse
+
+
+def detect_security_mechanism(html):
+    html_lower = html.lower()
+    indicators = ["captcha","recaptcha",
+        "hcaptcha","turnstile","cf-chl-","g-recaptcha","h-captcha","verify you are human","verify you're human",
+        "i'm not a robot"
+    ]
+    ensembe = set()
+    # HTML et JavaScript 
+    for indicator in indicators:
+        if indicator in html_lower:
+            ensembe.add(indicator)
+    # Scripts
+    soup= BeautifulSoup(html, "lxml")
+    for script in soup.find_all("script"):
+        content = script.get_text(" ", strip=True).lower()
+
+        for indicator in indicators:
+            if indicator in content:
+                ensembe.add(indicator)
+    return ensembe
 
 
 BASE_URL = "https://www.linkedin.com/jobs/search/"
@@ -27,6 +50,7 @@ Liste_IP=[
 "84.247.60.125:6095:uminmkww:7jrjpkwe5h3i",
 "142.111.67.146:5611:uminmkww:7jrjpkwe5h3i",
 "191.96.254.138:6185:uminmkww:7jrjpkwe5h3i"]
+
 
 def Recherche_par_request(postes, localisation, start=0):
     params = {"keywords": postes, "location": localisation, "start": start}
@@ -54,13 +78,13 @@ def Recherche_par_request(postes, localisation, start=0):
 def recuperer_page_playwright(postes, localisation, start=0):
     url = (BASE_URL+f"?keywords={quote_plus(postes)}&location={quote_plus(localisation)}&start={start}")
 
-    choix_Proxy = random.choice(Liste_IP)# on choisi un ip aleatoir
+    choix_Proxy = random.choice(Liste_IP)           # on choisi un ip aleatoir
     ip, port, user_proxy, pwd = choix_Proxy.split(":")
 
     try:
-        with sync_playwright() as p: # lancer le playwright
-            browser = p.chromium.launch( # lancer le web
-                headless=True, # web en arieur plan
+        with sync_playwright() as p:        # lancer le playwright
+            browser = p.chromium.launch(    # lancer le web
+                headless=True,              # web en arieur plan
                 proxy={
                     "server": f"http://{ip}:{port}",
                     "username": user_proxy,
@@ -71,9 +95,9 @@ def recuperer_page_playwright(postes, localisation, start=0):
                 user_agent=user.random)
             try:
                 page.goto(url, timeout=30000, wait_until="domcontentloaded") # charger le l'url et attender le html et le js
-            except Exception as e: # intercepter leureur 
+            except Exception as e:                                           # intercepter leureur 
                 print(f"Erreur lors du chargement de la page : {e}")
-                browser.close() # ferfer larieur plan
+                browser.close()                                              # ferfer larieur plan
                 return None
 
             try:
@@ -99,33 +123,59 @@ def collecter_donnees_brutes(html):
         return []
     soup = BeautifulSoup(html, "lxml")
     Donner_Bruit = []
-
-    """verification_capchat=Detection(html)
-    if  verification_capchat>0:
-        print("mecanisme de securiter detecter !!!")
-        print("arret de collection ")
-        return"""
-
+    
     for element in soup.select("li"):
+
+        """Mecanisme_de_capchat=detect_security_mechanism(html)
+        if Mecanisme_de_capchat:
+            print("mecanisme detecter !!!")
+            print("arreter lextraction !!!")
+            break"""
+        
         Titre_el = element.select_one(".base-search-card__title")
         Entreprise_el = element.select_one(".base-search-card__subtitle")
         Localisation_el = element.select_one(".job-search-card__location")
         lien_el = element.select_one(".base-card__full-link")
+        source=urlparse(BASE_URL).netloc.replace("www.","").split(".")[0]
+        Statut_el = element.select_one(".job-search-card_closed-notice, .job-search-cardbenefits, .base-search-card_metadata .job-posting-benefits")
+        Statut_offre = "Désactivé" if Statut_el else "Activé"
+        try:
+            Date_el = element.select_one(".job-search-card__listdate, time")
+        except Exception:
+            Date_el = None
+        texte_element=element.get_text(" ",strip=True).lower()
+        Contra = element.select_one(".flex.j,ustify-between.items-center")
+        niveau=element.select_one(".flex.justify-between.items-center")
+
+        from liste import technologies
+        Technologie=[tech for tech in technologies if tech.lower() in texte_element]
+
+
+        
 
         Titre = Titre_el.get_text(strip=True) if Titre_el else ""
         Entreprise = Entreprise_el.get_text(strip=True) if Entreprise_el else ""
         Localisation = Localisation_el.get_text(strip=True) if Localisation_el else ""
         Lien = lien_el.get("href", "") if lien_el else ""
+        Contrat=Contra.get_text(strip=True) if Contra else ""
+        Niveau_demander=niveau.get_text(strip=True) if niveau else ""
+        Date=Date_el.get_text(strip=True) if Date_el else ""
 
         if not Titre and not Entreprise:
             continue
 
         Donner_Bruit.append({
-            "Titre ": Titre,
-            "Entreprise ": Entreprise,
-            "Localisation ": Localisation,
-            "Lien ": Lien
+            "Titre ": Titre if Titre else "N/A",
+            "Entreprise ": Entreprise if Entreprise else "N/A",
+            "Localisation ": Localisation if localisation else "N/A",
+            "Lien ": Lien if Lien else "N/A",
+            "Technologie":Technologie if Technologie else "N/A",
+            "sourcev ":Statut_offre if Statut_offre else "N/A",
+            "date ":Date if Date else "N/A",
+            "Contra ":Contrat if Contra else "N/A",
+            "niveau":Niveau_demander if Niveau_demander else "N/A"
         })
+
     return Donner_Bruit
 
 
@@ -159,6 +209,7 @@ def recherche_thread(Poste_Rechercher, localisation_Rechercher, nb_pages):
 
     for x in toutes_les_donnees:
         for i, j in x.items():
+            print("-"*30)
             print(i," :",j)
         print("")
     Statu.set(f"Recherche terminée : {len(toutes_les_donnees)} résultat(s) trouvé(s) sur {nb_pages} page(s) en {duree_totale:.1f}s")
@@ -187,15 +238,7 @@ def Recherhce():
         daemon=True         # arrter le theard qaunt tkinter se ferme
     ).start()               # lancer le thread
 
-#detection
-def Detection(html):
-    dectecter=["capchat","detection_humain"]
-    compeur=0
-    html_lover=html.lower()
-    for i in html_lover:
-        if i in dectecter:
-            compeur=compeur+1
-    return dectecter
+
 
 def Arreter():
     Statu.set(f"Rechercher Terminer cliquer sur Exporter")
