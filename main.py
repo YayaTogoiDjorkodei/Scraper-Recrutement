@@ -1,16 +1,21 @@
 import tkinter as tk
-import random # pour un chois aleatior sur le adress  IP
+import random                           # pour un chois aleatior sur le adress  IP
 import time 
-import threading # utilisation de thread
+import threading                        # utilisation de thread
 import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright # pilote un vrai navigateur Chromium en arrière-plan, capable d'exécuter le JavaScript
+from fake_useragent import UserAgent        # choisir un user aleatoir valide a chaque envoi de requet
+from urllib.parse import quote_plus         #suprimer les space saisi par lutilisateur 
 
-BASE_URL = "https://www.linkedin.com/"
+
+BASE_URL = "https://www.linkedin.com/jobs/search/"
+user=UserAgent()
 
 HEADERS = {
-   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+   "User-Agent": user.random
 }
+#"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
 Liste_IP=[
 "31.59.20.176:6754:uminmkww:7jrjpkwe5h3i",
 "31.56.127.193:7684:uminmkww:7jrjpkwe5h3i",
@@ -25,16 +30,18 @@ Liste_IP=[
 
 def Recherche_par_request(postes, localisation, start=0):
     params = {"keywords": postes, "location": localisation, "start": start}
+    url=(BASE_URL)
     choix_Proxy = random.choice(Liste_IP)
-    ip, port, user, pwd = choix_Proxy.split(":")
+    ip, port, user_proxy, pwd = choix_Proxy.split(":")
     proxies = {
-        "http": f"http://{user}:{pwd}@{ip}:{port}/",
-        "https": f"http://{user}:{pwd}@{ip}:{port}/"
+        "http": f"http://{user_proxy}:{pwd}@{ip}:{port}/",
+        "https": f"http://{user_proxy}:{pwd}@{ip}:{port}/"
     }
+    HEADERS={"User-Agent":user.random}
 
     try:
         reponse =requests.get(
-        BASE_URL,proxies=proxies,
+        url=url,proxies=proxies,
         headers=HEADERS,   
         params=params, timeout=15)
         reponse.raise_for_status() 
@@ -45,35 +52,32 @@ def Recherche_par_request(postes, localisation, start=0):
 
 
 def recuperer_page_playwright(postes, localisation, start=0):
-    from urllib.parse import quote_plus #suprimer les space saisi par lutilisateur 
-    url = ("https://www.linkedin.com/jobs/search/"
-           f"?keywords={quote_plus(postes)}&location={quote_plus(localisation)}&start={start}")
+    url = (BASE_URL+f"?keywords={quote_plus(postes)}&location={quote_plus(localisation)}&start={start}")
 
     choix_Proxy = random.choice(Liste_IP)# on choisi un ip aleatoir
-    ip, port, user, pwd = choix_Proxy.split(":")
+    ip, port, user_proxy, pwd = choix_Proxy.split(":")
 
     try:
-        with sync_playwright() as p: # la,cer le playwright
+        with sync_playwright() as p: # lancer le playwright
             browser = p.chromium.launch( # lancer le web
-                headless=True,
+                headless=True, # web en arieur plan
                 proxy={
                     "server": f"http://{ip}:{port}",
-                    "username": user,
+                    "username": user_proxy,
                     "password": pwd
                 }
             )
             page = browser.new_page(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
-            )
+                user_agent=user.random)
             try:
-                page.goto(url, timeout=30000, wait_until="domcontentloaded") # charger le l'url et attender le html
+                page.goto(url, timeout=30000, wait_until="domcontentloaded") # charger le l'url et attender le html et le js
             except Exception as e: # intercepter leureur 
                 print(f"Erreur lors du chargement de la page : {e}")
-                browser.close() # verfer larier plan
+                browser.close() # ferfer larieur plan
                 return None
 
             try:
-                page.wait_for_selector("ul.jobs-search__results-list", timeout=15000) # attendre et recuperepr le contenu 
+                page.wait_for_selector("ul.jobs-search__results-list", timeout=15000) # attendre et recuperepr le contenu  html ou le dom
             except Exception:# Le sélecteur n'apparait pas on récupère quand même le HTML pour debug
                 print("Sélecteur introuvable, LinkedIn bloque peut-être le headless. Récupération du HTML brut pour analyse.")
                 html_debug = page.content()
@@ -95,6 +99,13 @@ def collecter_donnees_brutes(html):
         return []
     soup = BeautifulSoup(html, "lxml")
     Donner_Bruit = []
+
+    """verification_capchat=Detection(html)
+    if  verification_capchat>0:
+        print("mecanisme de securiter detecter !!!")
+        print("arret de collection ")
+        return"""
+
     for element in soup.select("li"):
         Titre_el = element.select_one(".base-search-card__title")
         Entreprise_el = element.select_one(".base-search-card__subtitle")
@@ -119,7 +130,7 @@ def collecter_donnees_brutes(html):
 
 
 #Fonction exécutée dans le thread séparé
-def _recherche_thread(Poste_Rechercher, localisation_Rechercher, nb_pages):
+def recherche_thread(Poste_Rechercher, localisation_Rechercher, nb_pages):
     Statu.set(f"Recherche en cours sur : {Poste_Rechercher} {localisation_Rechercher}")
 
     toutes_les_donnees = []
@@ -141,14 +152,14 @@ def _recherche_thread(Poste_Rechercher, localisation_Rechercher, nb_pages):
             break
         toutes_les_donnees.extend(Donner)
         if i<nb_pages-1:
-            pause = random.uniform(3, 8)  # nombre aleatoir entre 3 et 8 secondes
+            pause = random.uniform(3, 8)    # nombre aleatoir entre 3 et 8 secondes
             Statu.set(f"Pause de {pause:.1f}s avant la prochaine page...")
-            time.sleep(pause) # ajouter un pause
-    duree_totale = time.time() - debut  # temps écoulé en sec
+            time.sleep(pause)               # ajouter un pause
+    duree_totale = time.time() - debut      # temps écoulé en sec
 
     for x in toutes_les_donnees:
         for i, j in x.items():
-            print(i, " ", j)
+            print(i," :",j)
         print("")
     Statu.set(f"Recherche terminée : {len(toutes_les_donnees)} résultat(s) trouvé(s) sur {nb_pages} page(s) en {duree_totale:.1f}s")
 
@@ -168,14 +179,23 @@ def Recherhce():
     except ValueError:
         page = 1
 
-    threading.Thread(   # Lancer la recherche dans un thread séparé pour :
-                        #Ne pas bloquer l'interface Tkinter
-                        #Éviter le conflit entre le boucl de tkinter et celui de playwright
-        target=_recherche_thread,
+    threading.Thread(       # Lancer la recherche dans un thread séparé pour :
+                            #Ne pas bloquer l'interface Tkinter
+                            #Éviter le conflit entre le boucl de tkinter et celui de playwright
+        target=recherche_thread,
         args=(Poste_Rechercher, localisation_Rechercher, page),
-        daemon=True # arrter le theard qaunt tkinter se ferme
-    ).start() # lancer le thread
+        daemon=True         # arrter le theard qaunt tkinter se ferme
+    ).start()               # lancer le thread
 
+#detection
+def Detection(html):
+    dectecter=["capchat","detection_humain"]
+    compeur=0
+    html_lover=html.lower()
+    for i in html_lover:
+        if i in dectecter:
+            compeur=compeur+1
+    return dectecter
 
 def Arreter():
     Statu.set(f"Rechercher Terminer cliquer sur Exporter")
