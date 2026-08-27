@@ -1,0 +1,314 @@
+import tkinter as tk
+import random                                   # pour un chois aleatior sur le adress  IP
+import time 
+import threading                                # utilisation de thread
+import requests
+from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright # pilote un vrai navigateur Chromium en arrière-plan, capable d'exécuter le JavaScript
+from fake_useragent import UserAgent            # choisir un user aleatoir valide a chaque envoi de requet
+from urllib.parse import quote_plus             #suprimer les space saisi par lutilisateur 
+from urllib.parse import urlparse
+
+
+def detect_security_mechanism(html):
+    html_lower = html.lower()
+    indicators = ["captcha","recaptcha",
+        "hcaptcha","turnstile","cf-chl-","g-recaptcha","h-captcha","verify you are human","verify you're human",
+        "i'm not a robot"
+    ]
+    ensembe = set()
+    # HTML et JavaScript 
+    for indicator in indicators:
+        if indicator in html_lower:
+            ensembe.add(indicator)
+    # Scripts
+    soup= BeautifulSoup(html, "lxml")
+    for script in soup.find_all("script"):
+        content = script.get_text(" ", strip=True).lower()
+
+        for indicator in indicators:
+            if indicator in content:
+                ensembe.add(indicator)
+    return ensembe
+
+
+BASE_URL = "https://www.indeed.com/jobs"
+user=UserAgent()
+
+HEADERS = {
+   "User-Agent": user.random
+}
+#"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+Liste_IP=[
+"31.59.20.176:6754:uminmkww:7jrjpkwe5h3i",
+"45.38.107.97:6014:uminmkww:7jrjpkwe5h3i",
+"198.105.121.200:6462:uminmkww:7jrjpkwe5h3i",
+"64.137.96.74:6641:uminmkww:7jrjpkwe5h3i",
+"198.23.243.226:6361:uminmkww:7jrjpkwe5h3i",
+"38.154.185.97:6370:uminmkww:7jrjpkwe5h3i",
+"84.247.60.125:6095:uminmkww:7jrjpkwe5h3i",
+"142.111.67.146:5611:uminmkww:7jrjpkwe5h3i",
+"191.96.254.138:6185:uminmkww:7jrjpkwe5h3i",
+"31.58.9.4:6077:uminmkww:7jrjpkwe5h3i"]
+
+
+def Recherche_par_request(postes, localisation, start=0):
+    params = {"q": postes, "l": localisation, "start": start}
+    url=(BASE_URL)
+    choix_Proxy = random.choice(Liste_IP)
+    ip, port, user_proxy, pwd = choix_Proxy.split(":")
+    proxies = {
+        "http": f"http://{user_proxy}:{pwd}@{ip}:{port}/",
+        "https": f"http://{user_proxy}:{pwd}@{ip}:{port}/"
+    }
+    HEADERS={"User-Agent":user.random}
+
+    try:
+        reponse =requests.get(
+        url=url,proxies=proxies,
+        headers=HEADERS,   
+        params=params, timeout=15)
+        reponse.raise_for_status() 
+        return reponse.text
+    except requests.RequestException as e:
+        print(f"Erreur requête : {e}")
+        return None
+
+
+def recuperer_page_playwright(postes, localisation, start=0):
+    url = (BASE_URL+f"?q={quote_plus(postes)}&l={quote_plus(localisation)}&start={start}")
+
+    choix_Proxy = random.choice(Liste_IP)           # on choisi un ip aleatoir
+    ip, port, user_proxy, pwd = choix_Proxy.split(":")
+
+    try:
+        with sync_playwright() as p:        # lancer le playwright
+            browser = p.chromium.launch(    # lancer le web
+                headless=False,              # web en arieur plan
+                proxy={
+                    "server": f"http://{ip}:{port}",
+                    "username": user_proxy,
+                    "password": pwd
+                }
+            )
+            page = browser.new_page(
+                user_agent=user.random)
+            try:
+                page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                page.wait_for_timeout(3000) # charger le l'url et attender le html et le js
+            except Exception as e:                                           # intercepter leureur 
+                print(f"Erreur lors du chargement de la page : {e}")
+                browser.close()                                              # ferfer larieur plan
+                return None
+
+            try:
+                page.wait_for_selector("div.job_seen_beacon, td.resultContent",timeout=15000)
+            except Exception:# Le sélecteur n'apparait pas on récupère quand même le HTML pour debug
+                print("Sélecteur introuvable, indeed bloque peut-être le headless.")
+                html_debug = page.content()
+                browser.close()
+                return html_debug
+
+            html = page.content()
+            browser.close()
+            return html
+
+    except Exception as e:
+        print(f"Erreur Playwright : {e}")
+        return None
+
+
+def collecter_donnees_brutes(html):
+    if not html:
+        print("HTML Introuvable !!!")
+        return []
+    soup = BeautifulSoup(html, "lxml")
+    Donner_Bruit = []
+    
+    for element in soup.select("div.job_seen_beacon, div.cardOutline"):
+
+        """Mecanisme_de_capchat=detect_security_mechanism(html)
+        if Mecanisme_de_capchat:
+            print("mecanisme detecter !!!")
+            print("arreter lextraction !!!")
+            break"""
+        
+        Titre_el = element.select_one("h2.jobTitle span, a.jcs-JobTitle")
+        Entreprise_el = element.select_one("span.companyName, [data-testid='company-name']")
+        Localisation_el = element.select_one("div.companyLocation, [data-testid='text-location']")
+        lien_el = element.select_one("a.jcs-JobTitle")
+        source=urlparse(BASE_URL).netloc.replace("www.","").split(".")[0]
+        Statut_el = element.select_one("div.heading6.error, span.mosaic-provider-job-insights, "
+        "[data-testid='job-type-badge']")
+        Statut_offre = "Désactivé" if Statut_el else "Activé"
+        try:
+            Date_el = element.select_one("span.date, [data-testid='myJobsStateDate'], span[class*='date']")
+        except Exception:
+            Date_el = None
+        texte_element=element.get_text(" ",strip=True).lower()
+        Salaire_el = element.select_one("div.attribute_snippet, [data-testid='attribute_snippet_salary']")
+        contact = element.select_one(".linkedin.sdui.generated.jobseeker.dsl.impl.peopleWhoCanHelp")
+        from liste import technologies,niveaux_etudes,experience,type_contrat
+        Technologie=[tech for tech in technologies if tech.lower() in texte_element.lower()]
+        Niveau=[n for n in niveaux_etudes if n.lower() in texte_element.lower()]
+        Experienc=[a for a in experience if a.lower() in texte_element.lower()]
+        Contrat=[x for x in type_contrat if x.lower() in texte_element.lower()]
+        
+        Titre = Titre_el.get_text(strip=True) if Titre_el else ""
+        Entreprise = Entreprise_el.get_text(strip=True) if Entreprise_el else ""
+        Localisation = Localisation_el.get_text(strip=True) if Localisation_el else ""
+        href = lien_el.get("href", "") if lien_el else ""
+        Lien = f"https://www.indeed.com{href}" if href.startswith("/") else href        
+        Date=Date_el.get_text(strip=True) if Date_el else ""
+        salaire = Salaire_el.get_text(strip=True) if Salaire_el else ""
+        Contacte_Recruteur=contact.get_text(strip=True) if contact else ""
+        Posting_Date_Status_Detail = (f"{Statut_offre if Statut_offre else 'statut inconnu'} | "f"{Date if Date else 'date inconnue'}")
+
+        if not Titre and not Entreprise:
+            continue
+
+        Donner_Bruit.append({
+            "Titre ": Titre if Titre else "N/A",
+            "Entreprise ": Entreprise if Entreprise else "N/A",
+            "Localisation ": Localisation if localisation else "N/A",
+            "Lien ": Lien if Lien else "N/A",
+            "Technologie":Technologie if Technologie else "N/A",
+            "sourcev ":Statut_offre if Statut_offre else "N/A",
+            "date ":Date if Date else "N/A",
+            "Contra ":Contrat if Contrat else "N/A",
+            "niveau":Niveau if Niveau else "N/A",
+            "salaire ":salaire if salaire else "N/A",
+            "contacte :":Contacte_Recruteur if Contacte_Recruteur else "N/A",
+            "Experienc:":Experienc if Experienc else "N/A",
+            "Posting_Date_Status_Detail :":Posting_Date_Status_Detail if Posting_Date_Status_Detail else "N/A"
+        })
+
+    return Donner_Bruit
+
+stop_event = threading.Event() # Permet de communiquer un signal d'arrêt entre les deux threads
+
+#Fonction exécutée dans le thread séparé
+def recherche_thread(Poste_Rechercher, Liste_localisations, nb_pages):
+    stop_event.clear() 
+    Statu.set(f"Recherche en cours sur : {Poste_Rechercher} {Liste_localisations}")
+    toutes_les_donnees = []
+    debut=time.time() 
+    for ville in Liste_localisations:
+        Statu.set(f"Recherche sur le ville de {ville}/{len(Liste_localisations)}")
+        for i in range(nb_pages):
+            if stop_event.is_set():
+                Statu.set(f"Recherche interompue par l'utilisateur a la ville{ville}")
+                break
+
+            start = i * 25  
+            Statu.set(f"Récupération page {i+1}/{nb_pages} (start={start})...")
+
+            html = Recherche_par_request(Poste_Rechercher, ville, start=start)
+            Donner = collecter_donnees_brutes(html)
+
+            if not Donner:
+                Statu.set(f"Requête simple insuffisante page {i+1}, Playwright en cours...")
+                html = recuperer_page_playwright(Poste_Rechercher, ville, start=start)
+                Donner = collecter_donnees_brutes(html)
+
+            if not Donner:
+                print(f"Aucun résultat trouvé à la page {i+1}, arrêt de la pagination.")
+                break
+            
+            toutes_les_donnees.extend(Donner)
+            if i<nb_pages-1:
+                pause = random.uniform(3, 8)    # nombre aleatoir entre 3 et 8 secondes
+                Statu.set(f"Pause de {pause:.1f}s avant la prochaine page...")
+                time.sleep(pause)               # ajouter un pause
+        if ville!=Liste_localisations[-1]:
+            pause_ville=random.uniform(5,12)
+            Statu.set(f"Paus de {pause_ville:.1f}s avant la prochaine ville ")
+            time.sleep(pause_ville)
+        
+    duree_totale = time.time() - debut      # temps écoulé en sec
+    Statu.set(f"donner collecter en {duree_totale}")
+    for x in toutes_les_donnees:
+        for i, j in x.items():
+            print("-"*60)
+            print(i," :",j)
+        print("")
+        print("")
+
+    Statu.set(f"Recherche terminée : {len(toutes_les_donnees)} résultat(s) trouvé(s) sur {nb_pages} page(s) en {duree_totale:.1f}s")
+    fenetre.after(0,lambda:Bouton_demarrer.config(state="normal")) # reactiver bouton 
+    fenetre.after(0,lambda:Bouton_arrete.config(state="disabled"))# descativer
+
+def Recherhce():
+    Poste_Rechercher = postes.get()
+    localisation_Rechercher = localisation.get()
+
+    if not Poste_Rechercher or not localisation_Rechercher:
+        Statu.set("Erreur : veuillez remplir le Poste_Rechercher et la localisation")
+        return
+
+    try:
+        page = int(Nombre_de_Page.get())
+        if page<0:
+            print("le Nombre de page doit etre un entier")
+            return
+    except ValueError:
+        page = 1
+    Liste_localisations = [ville.strip() for ville in localisation_Rechercher.split(",") if ville.strip()]
+
+    Bouton_demarrer.config(state="disabled") #descativer pendant lexecution 
+    Bouton_arrete.config(state="normal")
+    threading.Thread(       #Lancer la recherche dans un thread séparé pour :
+                            #Ne pas bloquer l'interface Tkinter
+                            #Éviter le conflit entre le boucl de tkinter et celui de playwright
+        target=recherche_thread,
+        args=(Poste_Rechercher, Liste_localisations, page),
+        daemon=True         # arrter le theard qaunt tkinter se ferme
+    ).start()               # lancer le thread
+
+
+
+def Arreter():
+    stop_event.set()
+    Statu.set("Arrêt demandé, patientez la fin de la page en cours...")
+    Bouton_arrete.config(state="disabled")
+    
+def Exporter():
+    Statu.set(f"Tous les contenu Sont Exporter sur Excel")
+
+
+fenetre=tk.Tk()
+fenetre.title("Scripeur De Recruyement Python")
+fenetre.geometry("500x300")
+
+#positionsjhk
+tk.Label(fenetre,text="Poste_Rechercher :").grid(row=0,column=0,padx=10,pady=10,sticky="w")
+postes=tk.Entry(fenetre,width=40)
+postes.grid(row=0,column=1,columnspan=3,padx=10,pady=10,sticky="w")
+
+#localisation
+tk.Label(fenetre,text="Localisation (séparez par des virgules) :").grid(row=1,column=0,padx=10,pady=10,sticky="w")
+localisation=tk.Entry(fenetre,width=40)
+localisation.grid(row=1,column=1,columnspan=3,padx=10,pady=10,sticky="w")    
+
+#page
+tk.Label(fenetre,text="Page :").grid(row=2,column=0,columnspan=3,padx=10,pady=10,sticky="w")
+Nombre_de_Page=tk.Entry(fenetre,width=40)
+Nombre_de_Page.grid(row=2,column=1,columnspan=3,padx=10,pady=10,sticky="w")
+
+#Bouttona
+Bouton_demarrer=tk.Button(fenetre,text="Démarrer",command=Recherhce,bg="#26e362",width=13)
+Bouton_demarrer.grid(row=3,column=0,padx=11,pady=11,sticky="w")
+
+Bouton_arrete=tk.Button(fenetre,text="Arrêter",command=Arreter,bg="#9DE7FB",width=12)
+Bouton_arrete.grid(row=3,column=1,padx=10,pady=10,sticky="w")
+Bouton_arrete.config(state="disabled")
+
+Bouton_Exporter=tk.Button(fenetre,text="Exporter",command=Exporter,bg="#f56462",width=12)
+Bouton_Exporter.grid(row=3,column=2,padx=10,pady=10,sticky="w")
+
+#statue de recherc
+Statu=tk.StringVar() # mettre a jours Statue automatiquement
+Statu.set("Saisissez les paramètres puis cliquez sur Démarrer pour lancer la Rechercher")
+tk.Label(fenetre, textvariable=Statu, bd=3, relief="sunken", anchor="w").grid(row=4, column=0, columnspan=4, sticky="we")
+
+fenetre.mainloop()
