@@ -165,13 +165,6 @@ def collecter_donnees_brutes(html):
     Donner_Bruit = []
     
     for element in soup.select("li"):
-
-        """Mecanisme_de_capchat=detect_security_mechanism(html)
-        if Mecanisme_de_capchat:
-            print("mecanisme detecter !!!")
-            print("arreter lextraction !!!")
-            break"""
-        
         Titre_el = element.select_one(".base-search-card__title")
         Entreprise_el = element.select_one(".base-search-card__subtitle")
         Localisation_el = element.select_one(".job-search-card__location")
@@ -224,9 +217,8 @@ def collecter_donnees_brutes(html):
 
     return Donner_Bruit
 
-stop_event = threading.Event() # Permet de communiquer un signal d'arrêt entre les deux threads
+stop_event = threading.Event() 
 
-#Fonction exécutée dans le thread séparé
 def recherche_thread(Poste_Rechercher, Liste_localisations, nb_pages):
     stop_event.clear() 
     Statu.set(f"Recherche en cours sur : {Poste_Rechercher} {Liste_localisations}")
@@ -256,32 +248,33 @@ def recherche_thread(Poste_Rechercher, Liste_localisations, nb_pages):
             
             toutes_les_donnees.extend(Donner)
             if i<nb_pages-1:
-                pause = random.uniform(3, 8)    # nombre aleatoir entre 3 et 8 secondes
+                pause = random.uniform(3, 8)    
                 Statu.set(f"Pause de {pause:.1f}s avant la prochaine page...")
-                time.sleep(pause)               # ajouter un pause
+                time.sleep(pause)               
         if ville!=Liste_localisations[-1]:
             pause_ville=random.uniform(5,12)
             Statu.set(f"Paus de {pause_ville:.1f}s avant la prochaine ville ")
             time.sleep(pause_ville)
         
-    duree_totale = time.time() - debut      # temps écoulé en sec
+    duree_totale = time.time() - debut      
     Statu.set(f"donner collecter en {duree_totale}")
+
     for x in toutes_les_donnees:
         for i, j in x.items():
             print("-"*60)
             print(i," :",j)
         print("")
         print("")
-
+    
     Statu.set(f"Recherche terminée : {len(toutes_les_donnees)} résultat(s) trouvé(s) sur {nb_pages} page(s) en {duree_totale:.1f}s")
-    fenetre.after(0,lambda:Bouton_demarrer.config(state="normal")) # reactiver bouton 
-    fenetre.after(0,lambda:Bouton_arrete.config(state="disabled"))# descativer
+    fenetre.after(0,lambda:Bouton_demarrer.config(state="normal")) 
+    fenetre.after(0,lambda:Bouton_arrete.config(state="disabled"))
 
 def Recherhce():
     Poste_Rechercher = postes.get()
     Liste_localisations = []
     for ville, var in villes_vars.items():
-        if var.get():          # la case est cochée
+        if var.get():          
             Liste_localisations.append(ville)
 
     if not Poste_Rechercher or not Liste_localisations:
@@ -291,20 +284,17 @@ def Recherhce():
     try:
         page = int(Nombre_de_Page.get())
         if page<0:
-            print("le Nombre de page doit etre un entier")
             return
     except ValueError:
         page = 1
 
-    Bouton_demarrer.config(state="disabled") #descativer pendant lexecution 
+    Bouton_demarrer.config(state="disabled") 
     Bouton_arrete.config(state="normal")
-    threading.Thread(       #Lancer la recherche dans un thread séparé pour :
-                            #Ne pas bloquer l'interface Tkinter
-                            #Éviter le conflit entre le boucl de tkinter et celui de playwright
+    threading.Thread(       
         target=recherche_thread,
         args=(Poste_Rechercher, Liste_localisations, page),
-        daemon=True         # arrter le theard qaunt tkinter se ferme
-    ).start()               # lancer le thread
+        daemon=True         
+    ).start()               
 
 
 
@@ -319,20 +309,23 @@ def Exporter():
 
 villes_vars = {}
 
-def mettre_a_jour_tags_villes():# Nettoyer les anciens tags
+def mettre_a_jour_tags_villes():
+    # Nettoyer les anciens tags
     for widget in cadre_tags.winfo_children():
         widget.destroy()
     
     villes_selectionnees = [ville for ville, var in villes_vars.items() if var.get()]
     nb = len(villes_selectionnees)
-
+    
+    # Mettre à jour le texte du bouton principal
     Bouton_choisir_ville.config(text=f"Choisir Ville ({nb} villes)")
     
-    for ville in villes_selectionnees:    # Création dynamiquement d'une pastille (tag) avec une croix pour chaque ville sélectionnée
+    # Créer dynamiquement une pastille (tag) avec une croix pour chaque ville sélectionnée
+    for ville in villes_selectionnees:
         tag_frame = tk.Frame(cadre_tags, bg="#3caddd", bd=1, relief="solid")
         tag_frame.pack(side="left", padx=2, pady=2)
         
-        lbl_nom = tk.Label(tag_frame, text=ville, bg="#7cbef1", font=("Arial", 9))
+        lbl_nom = tk.Label(tag_frame, text=ville, bg="#e0e0e0", font=("Arial", 9))
         lbl_nom.pack(side="left", padx=(4, 2))
         
         # Fonction locale pour désélectionner la ville au clic sur la croix
@@ -340,62 +333,62 @@ def mettre_a_jour_tags_villes():# Nettoyer les anciens tags
             villes_vars[v].set(False)
             mettre_a_jour_tags_villes()
             
-        btn_croix = tk.Button(tag_frame, text="×", bg="#f08686", bd=0, fg="red", 
+        btn_croix = tk.Button(tag_frame, text="×", bg="#e0e0e0", bd=0, fg="red", 
                               font=("Arial", 9, "bold"), command=deselectionner, cursor="hand2")
         btn_croix.pack(side="right", padx=(0, 4))
 
 
 def ouvrir_fenetre_secondaire_selection():
-    fenetre_secondaire = tk.Toplevel(fenetre) #cree fenetre
+    fenetre_secondaire = tk.Toplevel(fenetre) 
     fenetre_secondaire.title("Sélectionner les villes")
     fenetre_secondaire.geometry("360x480")
-    fenetre_secondaire.transient(fenetre)    #depant du fenere principal
-    fenetre_secondaire.grab_set()            #bloquer le manupulisation de fenetre principale
+    fenetre_secondaire.transient(fenetre)    
+    fenetre_secondaire.grab_set()            
 
     def villes_triees():
-        return sorted(VILLES) #trie de ville ordre alphabetique 
+        return sorted(VILLES) 
 
-    cadre_recherche = ttk.Frame(fenetre_secondaire, padding=(10, 10, 10, 5)) #zone de regroupement de texte champs et boutton
-    cadre_recherche.pack(fill="x")                              #tous largeur disponible
+    cadre_recherche = ttk.Frame(fenetre_secondaire, padding=(10, 10, 10, 5)) 
+    cadre_recherche.pack(fill="x")                              
 
-    ttk.Label(cadre_recherche, text="Rechercher :").pack(side="left") #champs a gauche
+    ttk.Label(cadre_recherche, text="Rechercher :").pack(side="left") 
 
-    recherche_var = tk.StringVar()                                              #variable qui stok le champs saisi  
-    champ_recherche = ttk.Entry(cadre_recherche, textvariable=recherche_var)    #champs de saisi
-    champ_recherche.pack(side="left", fill="x", expand=True, padx=(5, 5))       #champs de texte a saisir expend=agrandire qaunt on agand le champs
-    champ_recherche.focus_set()                                                 #placer automatiquemeny le querseur 
+    recherche_var = tk.StringVar()                                              
+    champ_recherche = ttk.Entry(cadre_recherche, textvariable=recherche_var)    
+    champ_recherche.pack(side="left", fill="x", expand=True, padx=(5, 5))       
+    champ_recherche.focus_set()                                                 
 
     def effacer_recherche():
-        recherche_var.set("")       #metter le champs vide 
-        champ_recherche.focus_set() #quersuer automatique
+        recherche_var.set("")       
+        champ_recherche.focus_set() 
 
     ttk.Button(cadre_recherche, text="Effacer", command=effacer_recherche).pack(side="left")
 
-    cadre_liste = ttk.Frame(fenetre_secondaire)                 #zone de liste de ville 
-    cadre_liste.pack(fill="both", expand=True, padx=10, pady=5) #prend l'espace supplémentaire si la fenêtre s'agrandit
+    cadre_liste = ttk.Frame(fenetre_secondaire)                 
+    cadre_liste.pack(fill="both", expand=True, padx=10, pady=5) 
 
-    canvas = tk.Canvas(cadre_liste, highlightthickness=0)   #zone pour defiler le liste 0 enlever le bordur
-    scrollbar = ttk.Scrollbar(cadre_liste, orient="vertical", command=canvas.yview) #defiler lele contenu de canva
-    cadre_checkboxes = ttk.Frame(canvas)                    #cadre pour cocher
+    canvas = tk.Canvas(cadre_liste, highlightthickness=0)   
+    scrollbar = ttk.Scrollbar(cadre_liste, orient="vertical", command=canvas.yview) 
+    cadre_checkboxes = ttk.Frame(canvas)                    
 
     cadre_checkboxes.bind(
-        "<Configure>",    #evenement
-        lambda e: canvas.configure(scrollregion=canvas.bbox("all")),#mettre automatiquement à jour la zone de défilement (canva)
+        "<Configure>",    
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all")),
     )
-    canvas.create_window((0, 0), window=cadre_checkboxes, anchor="nw") #placer le case dans le canva
-    canvas.configure(yscrollcommand=scrollbar.set)     #synchroniser la position du Canvas avec la scrollbar.
+    canvas.create_window((0, 0), window=cadre_checkboxes, anchor="nw") 
+    canvas.configure(yscrollcommand=scrollbar.set)     
 
-    canvas.pack(side="left", fill="both", expand=True)# Place le Canvas à gauche et lui permet d'occuper tout l'espace disponible.
-    scrollbar.pack(side="right", fill="y")             #placer le scrollbar verticalement et a droit 
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")             
 
     def on_mousewheel(event):
-        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units") #defilement de canva verticalemnt avec le sense de mouvement dela souri
-    canvas.bind_all("<MouseWheel>", on_mousewheel)     #Associe l'événement de la molette de la souris à la fonction on_mousewheel
+        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units") 
+    canvas.bind_all("<MouseWheel>", on_mousewheel)     
 
-    cadre_bas = ttk.Frame(fenetre_secondaire, padding=10)#Crée un Frame situé en bas de la fenêtre popup.
+    cadre_bas = ttk.Frame(fenetre_secondaire, padding=10)
     cadre_bas.pack(fill="x")
 
-    label_compteur = ttk.Label(cadre_bas, text="") #compeut pour le nbr de ville placer a gauche
+    label_compteur = ttk.Label(cadre_bas, text="") 
     label_compteur.pack(side="left")
 
     def maj_compteur():
@@ -403,13 +396,13 @@ def ouvrir_fenetre_secondaire_selection():
         label_compteur.config(text=f"{nb} ville(s) sélectionnée(s)")
 
     def sur_clic_case():
-        maj_compteur()
         mettre_a_jour_tags_villes()
+        maj_compteur()
         afficher_villes(recherche_var.get()) 
 
     checkbox_widgets = {}
     for ville in VILLES:
-        chk = ttk.Checkbutton( #variable contin 0 ou 1 si le ville est cocher ou pas 
+        chk = ttk.Checkbutton(  
             cadre_checkboxes,
             text=ville,
             variable=villes_vars[ville],
@@ -418,26 +411,26 @@ def ouvrir_fenetre_secondaire_selection():
         checkbox_widgets[ville] = chk
 
     def afficher_villes(filtre=""):
-        for widget in cadre_checkboxes.winfo_children(): #on parcour chaque ville 
-            widget.pack_forget() #masque les autre nom
-        filtre = filtre.strip().lower() #enlever le space etc...
+        for widget in cadre_checkboxes.winfo_children(): 
+            widget.pack_forget() 
+        filtre = filtre.strip().lower() 
         for ville in villes_triees():          
             if ville.lower().startswith(filtre):
-                checkbox_widgets[ville].pack(anchor="w", pady=2, padx=5) #afficher le ville celon le case cocher ou
+                checkbox_widgets[ville].pack(anchor="w", pady=2, padx=5) 
 
     afficher_villes()
 
     def on_recherche_change(*_):
         afficher_villes(recherche_var.get())
 
-    recherche_var.trace_add("write", on_recherche_change) #mettre a jours de que lutilisateur saisi modifi ou suprime le champs
+    recherche_var.trace_add("write", on_recherche_change) 
 
     maj_compteur()
     
     def appliquer():
-        canvas.unbind_all("<MouseWheel>") #retier les asosiation de de sourit 
+        canvas.unbind_all("<MouseWheel>") 
         mettre_a_jour_tags_villes()
-        fenetre_secondaire.destroy() #fermer le poppu
+        fenetre_secondaire.destroy() 
 
     ttk.Button(cadre_bas, text="Appliquer", command=appliquer).pack(side="right")
     fenetre_secondaire.protocol("WM_DELETE_WINDOW", appliquer) 
@@ -448,33 +441,34 @@ fenetre=tk.Tk()
 villes_vars.update({ville: tk.BooleanVar(value=False) for ville in VILLES})
 
 fenetre.title("Scripeur De Recruyement Python")
-fenetre.geometry("500x360")
+fenetre.geometry("500x360") # Légèrement agrandi en hauteur pour accueillir les tags
 fenetre.columnconfigure(1,weight=1)
 fenetre.columnconfigure(2,weight=1)
 fenetre.columnconfigure(3,weight=1)
 fenetre.rowconfigure(5,weight=1)
 
-#positionsjhk
+# Postes recherchés
 tk.Label(fenetre,text="Poste_Rechercher :").grid(row=0,column=0,padx=10,pady=10,sticky="ew")
 postes=tk.Entry(fenetre,width=40)
 postes.grid(row=0,column=1,columnspan=3,padx=10,pady=10,sticky="ew")
+
+# Localisation (Étiquette)
+tk.Label(fenetre,text="Localisation (Ville):").grid(row=1,column=0,padx=10,pady=5,sticky="nw")  
 
 # Conteneur pour afficher les villes sélectionnées sous forme de tags (juste au-dessus du bouton)
 cadre_tags = tk.Frame(fenetre)
 cadre_tags.grid(row=1, column=1, columnspan=3, padx=10, pady=2, sticky="ew")
 
-#localisation
-
-tk.Label(fenetre,text="Localisation (Ville):").grid(row=2,column=0,padx=10,pady=10,sticky="ew")  
+# Bouton Choisir Ville
 Bouton_choisir_ville = tk.Button(fenetre, text="Choisir Ville (0 villes)", command=ouvrir_fenetre_secondaire_selection)
-Bouton_choisir_ville.grid(row=2,column=1,columnspan=3,padx=10,pady=10,sticky="ew")
+Bouton_choisir_ville.grid(row=2,column=1,columnspan=3,padx=10,pady=5,sticky="ew")
 
-#page
+# Page
 tk.Label(fenetre,text="Page :").grid(row=3,column=0,columnspan=3,padx=10,pady=10,sticky="w")
 Nombre_de_Page=tk.Entry(fenetre,width=40)
 Nombre_de_Page.grid(row=3,column=1,columnspan=3,padx=10,pady=10,sticky="ew")
 
-#Bouttona
+# Boutons d'action
 Bouton_demarrer=tk.Button(fenetre,text="Démarrer",command=Recherhce,bg="#26e362",width=13)
 Bouton_demarrer.grid(row=4,column=0,padx=11,pady=11,sticky="ew")
 
@@ -485,10 +479,9 @@ Bouton_arrete.config(state="disabled")
 Bouton_Exporter=tk.Button(fenetre,text="Exporter",command=Exporter,bg="#f56462",width=12)
 Bouton_Exporter.grid(row=4,column=2,padx=10,pady=10,sticky="ew")
 
-#statue de recherc
-Statu=tk.StringVar() # mettre a jours Statue automatiquement
+# Statut de recherche
+Statu=tk.StringVar() 
 Statu.set("Saisissez les paramètres puis cliquez sur Démarrer pour lancer la Rechercher")
 tk.Label(fenetre, textvariable=Statu, bd=3, relief="sunken", anchor="w").grid(row=5, column=0, columnspan=4, sticky="ew")
 
 fenetre.mainloop()
-#https://www.linkedin.com/jobs/search/?keywords=Python&location=Morocco&sortBy=DD
