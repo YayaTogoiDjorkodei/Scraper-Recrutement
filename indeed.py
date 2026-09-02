@@ -133,9 +133,9 @@ def collecter_donnees_brutes(html):
             print("arreter lextraction !!!")
             break"""
         
-        Titre_el = element.select_one("h2.jobTitle span, a.jcs-JobTitle")
-        Entreprise_el = element.select_one("span.companyName, [data-testid='company-name']")
-        Localisation_el = element.select_one("div.companyLocation, [data-testid='text-location']")
+        Titre_el = element.select_one("h1.jobTitle")
+        Entreprise_el = element.select_one('span.companyName, 	[data-testid="company-name"]')
+        Localisation_el = element.select_one('div.companyLocation, [data-testid="text-location"]')
         lien_el = element.select_one("a.jcs-JobTitle")
         source=urlparse(BASE_URL).netloc.replace("www.","").split(".")[0]
         Statut_el = element.select_one("div.heading6.error, span.mosaic-provider-job-insights, "
@@ -170,7 +170,7 @@ def collecter_donnees_brutes(html):
         Donner_Bruit.append({
             "Titre ": Titre if Titre else "N/A",
             "Entreprise ": Entreprise if Entreprise else "N/A",
-            "Localisation ": Localisation if localisation else "N/A",
+            "Localisation ": Localisation if Localisation else "N/A",
             "Lien ": Lien if Lien else "N/A",
             "Technologie":Technologie if Technologie else "N/A",
             "sourcev ":Statut_offre if Statut_offre else "N/A",

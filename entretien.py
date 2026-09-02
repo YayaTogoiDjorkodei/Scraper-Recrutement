@@ -1,5 +1,4 @@
-import tkinter as tk 
-from tkinter import messagebox
+import tkinter as tk
 import random                                   # pour un chois aleatior sur le adress  IP
 import time 
 import threading                                # utilisation de thread
@@ -12,7 +11,7 @@ from urllib.parse import urlparse
 from tkinter import ttk
 from rapidfuzz import fuzz                      #libreri  de comparaison
 import re                                       # Rgulare Expression detecter et modifier un contenu     
-import pandas as pd
+
 
 def Normaliser(texte):
     texte = texte.strip().lower() 
@@ -67,38 +66,36 @@ HEADERS = {
    "User-Agent": user.random
 }
 
-def charger_liste_ip(chemin="IP_proxies.txt"):
-    try:
-        with open(chemin , "r",encoding="UTF-8") as f:
-            return [ligne.strip() for ligne in f if ligne.strip()]
-    except Exception as e:
-        print(f"Fichier {chemin} introuvable")
-        return []
+Liste_IP=[
+"31.59.20.176:6754:uminmkww:7jrjpkwe5h3i",
+"31.56.127.193:7684:uminmkww:7jrjpkwe5h3i",
+"45.38.107.97:6014:uminmkww:7jrjpkwe5h3i",
+"198.105.121.200:6462:uminmkww:7jrjpkwe5h3i",
+"64.137.96.74:6641:uminmkww:7jrjpkwe5h3i",
+"198.23.243.226:6361:uminmkww:7jrjpkwe5h3i",
+"38.154.185.97:6370:uminmkww:7jrjpkwe5h3i",
+"84.247.60.125:6095:uminmkww:7jrjpkwe5h3i",
+"142.111.67.146:5611:uminmkww:7jrjpkwe5h3i",
+"191.96.254.138:6185:uminmkww:7jrjpkwe5h3i"]
 
-def charger_villes_geonames(nb_max=1000, username="Yaya_Togoi_Djorkodei"):
-    url = "http://api.geonames.org/searchJSON"
-    params = {
-        "featureClass": "P",     # P = ville / lieu habité
-        "maxRows": nb_max,       # nombre max de villes à récupérer
-        "orderby": "population", # les plus grandes villes en premier
-        "username": username     
-    }
-    try:
-        reponse = requests.get(url, params=params, timeout=15)
-        reponse.raise_for_status()
-        data = reponse.json()
-        villes = [v["name"] for v in data.get("geonames", []) if v.get("name")]
-        return sorted(set(villes))   # tri alphabétique + suppression doublons
-    except requests.RequestException as e:
-        print(f"Erreur API GeoNames : {e}")
-        return []
 
-VILLES = charger_villes_geonames(nb_max=1000, username="Yaya_Togoi_Djorkodei")
+
+
+VILLES = [
+    "Agadir", "Ain Harrouda", "Al Hoceima", "Asilah", "Azrou",
+    "Beni Mellal", "Berkane", "Berrechid", "Casablanca", "Chefchaouen",
+    "Dakhla", "El Jadida", "Errachidia", "Essaouira", "Fes",
+    "Guelmim", "Ifrane", "Kenitra", "Khemisset", "Khouribga",
+    "Laayoune", "Larache", "Marrakech", "Meknes", "Mohammedia",
+    "Nador", "Ouarzazate", "Oujda", "Rabat", "Safi",
+    "Sale", "Settat", "Sidi Kacem", "Tanger", "Taza",
+    "Temara", "Tetouan", "Taourirt", "Taroudant", "Tiznit",
+]
 
 def Recherche_par_request(postes, localisation, start=0):
     params = {"keywords": postes, "location": localisation, "start": start}
     url=(BASE_URL)
-    choix_Proxy = random.choice(charger_liste_ip())
+    choix_Proxy = random.choice(Liste_IP)
     ip, port, user_proxy, pwd = choix_Proxy.split(":")
     proxies = {
         "http": f"http://{user_proxy}:{pwd}@{ip}:{port}/",
@@ -121,7 +118,7 @@ def Recherche_par_request(postes, localisation, start=0):
 def recuperer_page_playwright(postes, localisation, start=0):
     url = (BASE_URL+f"?keywords={quote_plus(postes)}&location={quote_plus(localisation)}&sortBy=DD&start={start}")
 
-    choix_Proxy = random.choice(charger_liste_ip())   # on choisi un ip aleatoir
+    choix_Proxy = random.choice(Liste_IP)   # on choisi un ip aleatoir
     ip, port, user_proxy, pwd = choix_Proxy.split(":")
 
     try:
@@ -168,13 +165,6 @@ def collecter_donnees_brutes(html):
     Donner_Bruit = []
     
     for element in soup.select("li"):
-
-        """Mecanisme_de_capchat=detect_security_mechanism(html)
-        if Mecanisme_de_capchat:
-            print("mecanisme detecter !!!")
-            print("arreter lextraction !!!")
-            break"""
-        
         Titre_el = element.select_one(".base-search-card__title")
         Entreprise_el = element.select_one(".base-search-card__subtitle")
         Localisation_el = element.select_one(".job-search-card__location")
@@ -183,7 +173,7 @@ def collecter_donnees_brutes(html):
         Statut_el = element.select_one(".job-search-card_closed-notice, .job-search-cardbenefits, .base-search-card_metadata .job-posting-benefits")
         Statut_offre = "Désactivé" if Statut_el else "Activé"
         try:
-            Date_el = element.select_one(".job-search-L, time")
+            Date_el = element.select_one(".job-search-card__listdate, time")
         except Exception:
             Date_el = None
         texte_element=element.get_text(" ",strip=True).lower()
@@ -227,14 +217,12 @@ def collecter_donnees_brutes(html):
 
     return Donner_Bruit
 
-stop_event = threading.Event() # Permet de communiquer un signal d'arrêt entre les deux threads
+stop_event = threading.Event() 
 
-#Fonction exécutée dans le thread séparé
 def recherche_thread(Poste_Rechercher, Liste_localisations, nb_pages):
     stop_event.clear() 
     Statu.set(f"Recherche en cours sur : {Poste_Rechercher} {Liste_localisations}")
-    global toutes_les_donnees
-    toutes_les_donnees=[]
+    toutes_les_donnees = []
     debut=time.time() 
     for ville in Liste_localisations:
         Statu.set(f"Recherche sur le ville de {ville}/{len(Liste_localisations)}")
@@ -260,33 +248,33 @@ def recherche_thread(Poste_Rechercher, Liste_localisations, nb_pages):
             
             toutes_les_donnees.extend(Donner)
             if i<nb_pages-1:
-                pause = random.uniform(3, 8)    # nombre aleatoir entre 3 et 8 secondes
+                pause = random.uniform(3, 8)    
                 Statu.set(f"Pause de {pause:.1f}s avant la prochaine page...")
-                time.sleep(pause)               # ajouter un pause
+                time.sleep(pause)               
         if ville!=Liste_localisations[-1]:
             pause_ville=random.uniform(5,12)
             Statu.set(f"Paus de {pause_ville:.1f}s avant la prochaine ville ")
             time.sleep(pause_ville)
         
-    duree_totale = time.time() - debut      # temps écoulé en sec
+    duree_totale = time.time() - debut      
     Statu.set(f"donner collecter en {duree_totale}")
+
     for x in toutes_les_donnees:
         for i, j in x.items():
             print("-"*60)
             print(i," :",j)
         print("")
         print("")
-
+    
     Statu.set(f"Recherche terminée : {len(toutes_les_donnees)} résultat(s) trouvé(s) sur {nb_pages} page(s) en {duree_totale:.1f}s")
-    fenetre.after(0,lambda:Bouton_demarrer.config(state="normal")) # reactiver bouton 
-    fenetre.after(0,lambda:Bouton_arrete.config(state="disabled"))# descativer
-     
+    fenetre.after(0,lambda:Bouton_demarrer.config(state="normal")) 
+    fenetre.after(0,lambda:Bouton_arrete.config(state="disabled"))
 
 def Recherhce():
     Poste_Rechercher = postes.get()
     Liste_localisations = []
     for ville, var in villes_vars.items():
-        if var.get():          # la case est cochée
+        if var.get():          
             Liste_localisations.append(ville)
 
     if not Poste_Rechercher or not Liste_localisations:
@@ -296,20 +284,17 @@ def Recherhce():
     try:
         page = int(Nombre_de_Page.get())
         if page<0:
-            print("le Nombre de page doit etre un entier")
             return
     except ValueError:
         page = 1
 
-    Bouton_demarrer.config(state="disabled") #descativer pendant lexecution 
+    Bouton_demarrer.config(state="disabled") 
     Bouton_arrete.config(state="normal")
-    threading.Thread(       #Lancer la recherche dans un thread séparé pour :
-                            #Ne pas bloquer l'interface Tkinter
-                            #Éviter le conflit entre le boucl de tkinter et celui de playwright
+    threading.Thread(       
         target=recherche_thread,
         args=(Poste_Rechercher, Liste_localisations, page),
-        daemon=True         # arrter le theard qaunt tkinter se ferme
-    ).start()               # lancer le thread
+        daemon=True         
+    ).start()               
 
 
 
@@ -319,32 +304,28 @@ def Arreter():
     Bouton_arrete.config(state="disabled")
     
 def Exporter():
-    if Bouton_demarrer.cget("state")=="disabled":
-        messagebox.showwarning("Atendre la fin dexportation")
-    else:
-        Tableau=pd.DataFrame(toutes_les_donnees)
-        Tableau.to_excel("Fichier_Scripinge_Recrutement.xlsx", index=False)
-        Statu.set(f"Tous les contenu Sont Exporter sur Excel")
-
-
+    Statu.set(f"Tous les contenu Sont Exporter sur Excel")
 
 
 villes_vars = {}
 
-def mettre_a_jour_tags_villes():# Nettoyer les anciens tags
-    for widget in cadre_tags.winfo_children(): 
-        widget.destroy()   #suprimer 
+def mettre_a_jour_tags_villes():
+    # Nettoyer les anciens tags
+    for widget in cadre_tags.winfo_children():
+        widget.destroy()
     
     villes_selectionnees = [ville for ville, var in villes_vars.items() if var.get()]
     nb = len(villes_selectionnees)
-    fleche = "▲" if panel_ouvert else "▼"
-    Bouton_choisir_ville.config(text=f"Choisir Ville ({nb} villes){fleche}")
     
-    for ville in villes_selectionnees:    # Création dynamiquement d'une pastille (tag) avec une croix pour chaque ville sélectionnée
+    # Mettre à jour le texte du bouton principal
+    fleche = "▲" if panel_ouvert else "▼"
+    Bouton_choisir_ville.config(text=f"Choisir Ville ({nb} villes) {fleche}")    
+    # Créer dynamiquement une pastille (tag) avec une croix pour chaque ville sélectionnée
+    for ville in villes_selectionnees:
         tag_frame = tk.Frame(cadre_tags, bg="#3caddd", bd=1, relief="solid")
         tag_frame.pack(side="left", padx=2, pady=2)
         
-        lbl_nom = tk.Label(tag_frame, text=ville, bg="#7cbef1", font=("Arial", 9))
+        lbl_nom = tk.Label(tag_frame, text=ville, bg="#e0e0e0", font=("Arial", 9))
         lbl_nom.pack(side="left", padx=(4, 2))
         
         # Fonction locale pour désélectionner la ville au clic sur la croix
@@ -352,66 +333,69 @@ def mettre_a_jour_tags_villes():# Nettoyer les anciens tags
             villes_vars[v].set(False)
             mettre_a_jour_tags_villes()
             
-        btn_croix = tk.Button(tag_frame, text="×", bg="#f08686", bd=0, fg="red", 
+        btn_croix = tk.Button(tag_frame, text="×", bg="#e0e0e0", bd=0, fg="red", 
                               font=("Arial", 9, "bold"), command=deselectionner, cursor="hand2")
         btn_croix.pack(side="right", padx=(0, 4))
 
-panel_ouvert=False
 
-def Fenetre_Ville(parent):
-    cadre_recherche=ttk.Frame(parent,padding=(10, 5, 10, 5))
-    cadre_recherche.pack(fill="x")  #horizontal
-    tk.Label(cadre_recherche,text="Recherche").pack(side="left")
+panel_ouvert = False  # état global : panneau ouvert ou fermé
 
-    recherche_var=tk.StringVar()
-    champs_recherche=ttk.Entry(cadre_recherche,textvariable=recherche_var)
-    champs_recherche.pack(fill="x",side="left",expand=True,padx=(10,5))
+def construire_panel_villes(parent):
+    """Construit une seule fois le contenu du panneau de sélection des villes."""
+    cadre_recherche = ttk.Frame(parent, padding=(10, 5, 10, 5))
+    cadre_recherche.pack(fill="x")
 
-    def Effacer_recherche():
+    ttk.Label(cadre_recherche, text="Rechercher :").pack(side="left")
+
+    recherche_var = tk.StringVar()
+    champ_recherche = ttk.Entry(cadre_recherche, textvariable=recherche_var)
+    champ_recherche.pack(side="left", fill="x", expand=True, padx=(5, 5))
+
+    def effacer_recherche():
         recherche_var.set("")
-        champs_recherche.focus_set()
-    ttk.Button(cadre_recherche,command=Effacer_recherche,text="Effacer").pack(side="left")
+        champ_recherche.focus_set()
 
-    Cadre_liste=ttk.Frame(parent)
-    Cadre_liste.pack(fill="both",expand=True,padx=10,pady=5)
+    ttk.Button(cadre_recherche, text="Effacer", command=effacer_recherche).pack(side="left")
 
-    Zone_de_liste=tk.Canvas(Cadre_liste,highlightthickness=0,height=180)
-    Defilerment_de_liste=ttk.Scrollbar(Cadre_liste,orient="vertical",command=Zone_de_liste.yview)
-    cadre_checkboxes=ttk.Frame(Zone_de_liste)
+    cadre_liste = ttk.Frame(parent)
+    cadre_liste.pack(fill="both", expand=True, padx=10, pady=5)
+
+    canvas = tk.Canvas(cadre_liste, highlightthickness=0, height=180)
+    scrollbar = ttk.Scrollbar(cadre_liste, orient="vertical", command=canvas.yview)
+    cadre_checkboxes = ttk.Frame(canvas)
 
     cadre_checkboxes.bind(
         "<Configure>",
-        lambda e: Zone_de_liste.configure(scrollregion=Zone_de_liste.bbox("all"))
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all")),
     )
-    Zone_de_liste.create_window((0,0),window=cadre_checkboxes,anchor="nw")
-    Zone_de_liste.configure(yscrollcommand=Defilerment_de_liste.set)
+    canvas.create_window((0, 0), window=cadre_checkboxes, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
 
-    Zone_de_liste.pack(side="left",fill="both",expand=True)
-    Defilerment_de_liste.pack(side="right",fill="y")
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
 
-    def defilement_liste_de_ville(evenement):
-        Zone_de_liste.yview_scroll(int(-1*(evenement.delta/120)),"units")
-    Zone_de_liste.bind("<Enter>", lambda e: Zone_de_liste.bind_all("<MouseWheel>"),defilement_liste_de_ville)
-    Zone_de_liste.bind("<Leave>", lambda e: Zone_de_liste.unbind_all("<MouseWheel>"))
+    def on_mousewheel(event):
+        canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+    canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", on_mousewheel))
+    canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
 
-    cadre_bas=ttk.Frame(parent,padding=10)
+    cadre_bas = ttk.Frame(parent, padding=10)
     cadre_bas.pack(fill="x")
 
-    label_compteur=ttk.Label(cadre_bas,text="")
-
+    label_compteur = ttk.Label(cadre_bas, text="")
     label_compteur.pack(side="left")
 
     def maj_compteur():
-            nb = sum(var.get() for var in villes_vars.values())
-            label_compteur.config(text=f"{nb} ville(s) sélectionnée(s)")
-    
+        nb = sum(var.get() for var in villes_vars.values())
+        label_compteur.config(text=f"{nb} ville(s) sélectionnée(s)")
+
     def sur_clic_case():
         maj_compteur()
         mettre_a_jour_tags_villes()
         afficher_villes(recherche_var.get())
-    VILLES_TRIEES = sorted(VILLES)
+
     checkbox_widgets = {}
-    for ville in VILLES_TRIEES:
+    for ville in sorted(VILLES):
         chk = ttk.Checkbutton(
             cadre_checkboxes,
             text=ville,
@@ -424,18 +408,23 @@ def Fenetre_Ville(parent):
         for widget in cadre_checkboxes.winfo_children():
             widget.pack_forget()
         filtre = filtre.strip().lower()
-        for ville in VILLES_TRIEES:
+        for ville in sorted(VILLES):
             if ville.lower().startswith(filtre):
                 checkbox_widgets[ville].pack(anchor="w", pady=2, padx=5)
 
     afficher_villes()
+
     def on_recherche_change(*_):
         afficher_villes(recherche_var.get())
     recherche_var.trace_add("write", on_recherche_change)
-    maj_compteur()
-    ttk.Button(cadre_bas, text="Fermer", command=lambda: afficher_ou_masque_panau_ville()).pack(side="right")
 
-def afficher_ou_masque_panau_ville():
+    maj_compteur()
+
+    ttk.Button(cadre_bas, text="Fermer", command=lambda: toggler_panel_villes()).pack(side="right")
+
+
+def toggler_panel_villes():
+    """Affiche ou masque le panneau de sélection des villes sous le bouton."""
     global panel_ouvert
     if panel_ouvert:
         cadre_panel_villes.grid_remove()
@@ -445,44 +434,39 @@ def afficher_ou_masque_panau_ville():
         cadre_panel_villes.grid()
         Bouton_choisir_ville.config(text=f"Choisir Ville ({sum(v.get() for v in villes_vars.values())} villes) ▲")
         panel_ouvert = True
-
+   
 fenetre=tk.Tk()
+
 villes_vars.update({ville: tk.BooleanVar(value=False) for ville in VILLES})
 
 fenetre.title("Scripeur De Recruyement Python")
-fenetre.geometry("500x360")
+fenetre.geometry("500x360") # Légèrement agrandi en hauteur pour accueillir les tags
 fenetre.columnconfigure(1,weight=1)
 fenetre.columnconfigure(2,weight=1)
 fenetre.columnconfigure(3,weight=1)
 fenetre.rowconfigure(5,weight=1)
 
-#positionsjhk
 tk.Label(fenetre,text="Poste_Rechercher :").grid(row=0,column=0,padx=10,pady=10,sticky="ew")
 postes=tk.Entry(fenetre,width=40)
 postes.grid(row=0,column=1,columnspan=3,padx=10,pady=10,sticky="ew")
 
-# Conteneur pour afficher les villes sélectionnées sous forme de tags (juste au-dessus du bouton)
 cadre_tags = tk.Frame(fenetre)
 cadre_tags.grid(row=1, column=1, columnspan=3, padx=10, pady=2, sticky="ew")
 
-#localisation
-tk.Label(fenetre,text="Localisation (Ville):").grid(row=2,column=0,padx=10,pady=10,sticky="ew")  
-Bouton_choisir_ville = tk.Button(fenetre, text="Choisir Ville (0 villes)", command=afficher_ou_masque_panau_ville)
+tk.Label(fenetre,text="Localisation (Ville):").grid(row=2,column=0,padx=10,pady=10,sticky="ew")
+Bouton_choisir_ville = tk.Button(fenetre, text="Choisir Ville (0 villes) ▼", command=toggler_panel_villes)
 Bouton_choisir_ville.grid(row=2,column=1,columnspan=3,padx=10,pady=10,sticky="ew")
 
+# Panneau rétractable, placé juste sous le bouton, caché au démarrage
+cadre_panel_villes = ttk.Frame(fenetre, relief="groove", borderwidth=1)
+cadre_panel_villes.grid(row=3, column=0, columnspan=4, padx=10, pady=(0,10), sticky="nsew")
+construire_panel_villes(cadre_panel_villes)
+cadre_panel_villes.grid_remove()   # masqué par défaut
 
-#paneau de choix de ville cacher au demarage
-cadre_panel_villes=tk.Frame(fenetre,relief="groove",borderwidth=1)
-cadre_panel_villes.grid(row=3,column=0,columnspan=3,padx=10, pady=(0,10), sticky="nsew")
-Fenetre_Ville(cadre_panel_villes)
-cadre_panel_villes.grid_remove()
-
-#page
 tk.Label(fenetre,text="Page :").grid(row=4,column=0,columnspan=3,padx=10,pady=10,sticky="w")
 Nombre_de_Page=tk.Entry(fenetre,width=40)
 Nombre_de_Page.grid(row=4,column=1,columnspan=3,padx=10,pady=10,sticky="ew")
 
-#Bouttona
 Bouton_demarrer=tk.Button(fenetre,text="Démarrer",command=Recherhce,bg="#26e362",width=13)
 Bouton_demarrer.grid(row=5,column=0,padx=11,pady=11,sticky="ew")
 
@@ -493,9 +477,7 @@ Bouton_arrete.config(state="disabled")
 Bouton_Exporter=tk.Button(fenetre,text="Exporter",command=Exporter,bg="#f56462",width=12)
 Bouton_Exporter.grid(row=5,column=2,padx=10,pady=10,sticky="ew")
 
-#statue de recherc
-Statu=tk.StringVar() # mettre a jours Statue automatiquement
+Statu=tk.StringVar()
 Statu.set("Saisissez les paramètres puis cliquez sur Démarrer pour lancer la Rechercher")
 tk.Label(fenetre, textvariable=Statu, bd=3, relief="sunken", anchor="w").grid(row=6, column=0, columnspan=4, sticky="ew")
-
 fenetre.mainloop()
