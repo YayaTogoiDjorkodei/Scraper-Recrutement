@@ -13,6 +13,8 @@ from tkinter import ttk
 from rapidfuzz import fuzz                      #libreri  de comparaison
 import re                                       # Rgulare Expression detecter et modifier un contenu     
 import pandas as pd
+from openpyxl.styles import Font, PatternFill, Alignment #pour le style,couleur et position   
+from openpyxl.utils import get_column_letter  #numéro de colonne → lettre Excel
 
 def Normaliser(texte):
     texte = texte.strip().lower() 
@@ -230,7 +232,7 @@ stop_event = threading.Event() # Permet de communiquer un signal d'arrêt entre 
 
 #Fonction exécutée dans le thread séparé
 def recherche_thread(Poste_Rechercher, Liste_localisations, nb_pages):
-    stop_event.clear() 
+    stop_event.clear() #remetre letat du signale non declancher
     Statu.set(f"Recherche en cours sur : {Poste_Rechercher} {Liste_localisations}")
     global toutes_les_donnees
     toutes_les_donnees=[]
@@ -238,7 +240,7 @@ def recherche_thread(Poste_Rechercher, Liste_localisations, nb_pages):
     for ville in Liste_localisations:
         Statu.set(f"Recherche sur le ville de {ville}/{len(Liste_localisations)}")
         for i in range(nb_pages):
-            if stop_event.is_set():
+            if stop_event.is_set(): #si il ya une signale darret(exemple:biuton arreter)
                 Statu.set(f"Recherche interompue par l'utilisateur a la ville{ville}")
                 break
 
@@ -284,7 +286,7 @@ def recherche_thread(Poste_Rechercher, Liste_localisations, nb_pages):
 def Recherhce():
     Poste_Rechercher = postes.get()
     Liste_localisations = []
-    for ville, var in villes_vars.items():
+    for ville, var in villes_vars.items(): #Dict qui contiel (nom du ville et boulevar(true ou false))
         if var.get():          # la case est cochée
             Liste_localisations.append(ville)
 
@@ -305,7 +307,7 @@ def Recherhce():
     threading.Thread(       #Lancer la recherche dans un thread séparé pour :
                             #Ne pas bloquer l'interface Tkinter
                             #Éviter le conflit entre le boucl de tkinter et celui de playwright
-        target=recherche_thread,
+        target=recherche_thread, #funtion quiq sera executer apret le lancement de thrad
         args=(Poste_Rechercher, Liste_localisations, page),
         daemon=True         # arrter le theard qaunt tkinter se ferme
     ).start()               # lancer le thread
@@ -313,25 +315,107 @@ def Recherhce():
 
 
 def Arreter():
-    stop_event.set()
+    stop_event.set() #declancher le signal
     Statu.set("Arrêt demandé, patientez la fin de la page en cours...")
     Bouton_arrete.config(state="disabled")
     
 def Exporter():
-    if Bouton_demarrer.cget("state")=="disabled":
-        messagebox.showwarning("Atendre la fin dexportation")
-    else:
-        Tableau=pd.DataFrame(toutes_les_donnees)
-        Tableau.to_excel("Fichier_Scripinge_Recrutement.xlsx", index=False)
-        Statu.set(f"Tous les contenu Sont Exporter sur Excel")
+    if Bouton_demarrer.cget("state") == "disabled":
+        messagebox.showwarning("Attendre la fin d'exportation")
+        return
 
+    Tableau = pd.DataFrame(toutes_les_donnees)
 
+    mapping = {
+        "Titre ": "Job Title",
+        "Entreprise ": "Company Name",
+        "Localisation ": "City / Region",
+        "Lien ": "Job Link",
+        "Technologie": "Tech Stack / Skills",
+        "sourcev ": "Offer Status",
+        "date ": "Posted Date",
+        "Contra ": "Contract Type",
+        "niveau": "Education Level Required",
+        "salaire ": "Salary",
+        "contacte :": "Recruiter Contact",
+        "Experienc:": "Experience Required",
+        "Posting_Date_Status_Detail :": "Status / Date Detail",
+    }
+    Tableau = Tableau.rename(columns=mapping) #renomer le colone
 
+    
+    ordre_souhaite = [
+        "Company Name", "Job Title", "City / Region", "Job Link",
+        "Education Level Required", "Tech Stack / Skills",
+        "Contract Type", "Experience Required", "Salary",
+        "Offer Status", "Posted Date", "Status / Date Detail",
+        "Recruiter Contact",
+    ]
+    colonnes_finales = [c for c in ordre_souhaite if c in Tableau.columns]
+    colonnes_finales += [c for c in Tableau.columns if c not in colonnes_finales]
+    Tableau = Tableau[colonnes_finales]
+
+    def liste_vers_texte(val):
+        if isinstance(val, list):
+            return ", ".join(val) if val else "N/A"
+        return val
+
+    for col in Tableau.columns:
+        Tableau[col] = Tableau[col].apply(liste_vers_texte)
+
+    fichier = "Fichier_Scrapinge_Recrutement.xlsx"
+
+    with pd.ExcelWriter(fichier, engine="openpyxl") as writer: #cree unfichier engein=utiliser le libreri open..
+        Tableau.to_excel(writer, index=False, sheet_name="IT Jobs Data")
+        worksheet = writer.sheets["IT Jobs Data"]#recupere la feuille exelle
+
+        entete_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid") #PatternFill=couler du celul exell
+        entete_font = Font(bold=True, color="FFFFFF", size=11)
+        for cell in worksheet[1]: #1ere ligne de chaque celul
+            cell.fill = entete_fill#couleur de fon
+            cell.font = entete_font#couleur du text
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        if "Job Link" in colonnes_finales:
+            col_lien_idx = colonnes_finales.index("Job Link") + 1  # +1 car openpyxl commence à 1
+            lien_lettre = get_column_letter(col_lien_idx) #NUMERO EN LETTER 4=D
+
+            for row in range(2, worksheet.max_row + 1): #2 ligne 
+                cell = worksheet[f"{lien_lettre}{row}"]
+                url = cell.value
+                if url and url != "N/A":
+                    cell.hyperlink = url#lein clicable
+                    cell.font = Font(color="0563C1")  # bleu 
+
+        for i, col_name in enumerate(colonnes_finales, start=1):
+            lettre = get_column_letter(i)
+            if col_name == "Job Link":
+                # largeur fixe, indépendante de la longueur réelle de l'URL
+                worksheet.column_dimensions[lettre].width = 20
+            else:
+                max_len = max(
+                    Tableau[col_name].astype(str).map(len).max(),
+                    len(col_name)
+                )
+                worksheet.column_dimensions[lettre].width = min(max_len + 3, 60)
+
+        col_lien_idx = colonnes_finales.index("Job Link") + 1 if "Job Link" in colonnes_finales else None
+        for row in worksheet.iter_rows(min_row=2):
+            for cell in row:
+                if col_lien_idx and cell.column == col_lien_idx: # si se une ligne 
+                    cell.alignment = Alignment(wrap_text=False, vertical="top", horizontal="left")
+                else:                        #1seul ligne       haut             a gauche 
+                    cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+        for row_idx in range(2, worksheet.max_row + 1):
+            worksheet.row_dimensions[row_idx].height = 30
+                     #acceder a la ligen 
+    Statu.set("Tous les contenus sont exportés sur Excel")
 
 villes_vars = {}
 
-def mettre_a_jour_tags_villes():# Nettoyer les anciens tags
-    for widget in cadre_tags.winfo_children(): 
+def mettre_a_jour_tags_villes():      
+    for widget in cadre_tags.winfo_children():  #parcourir chaque ville selectioner
         widget.destroy()   #suprimer 
     
     villes_selectionnees = [ville for ville, var in villes_vars.items() if var.get()]
@@ -348,7 +432,7 @@ def mettre_a_jour_tags_villes():# Nettoyer les anciens tags
         
         # Fonction locale pour désélectionner la ville au clic sur la croix
         def deselectionner(v=ville):
-            villes_vars[v].set(False)
+            villes_vars[v].set(False)  #remetre le boulevr a false
             mettre_a_jour_tags_villes()
             
         btn_croix = tk.Button(tag_frame, text="×", bg="#f08686", bd=0, fg="red", 
@@ -363,8 +447,8 @@ def Fenetre_Ville(parent):
     tk.Label(cadre_recherche,text="Recherche").pack(side="left")
 
     recherche_var=tk.StringVar() #stoker le champs saisi
-    champs_recherche=ttk.Entry(cadre_recherche,textvariable=recherche_var)
-    champs_recherche.pack(fill="x",side="left",expand=True,padx=(10,5))
+    champs_recherche=ttk.Entry(cadre_recherche,textvariable=recherche_var) #textevariable=lire se que lutilisateur a saisi
+    champs_recherche.pack(fill="x",side="left",expand=True,padx=(10,5)) #file=acuper verticalement tous le space disponible 
 
     def Effacer_recherche():
         recherche_var.set("")
@@ -374,18 +458,18 @@ def Fenetre_Ville(parent):
     Cadre_liste=ttk.Frame(parent) #zone de liste
     Cadre_liste.pack(fill="both",expand=True,padx=10,pady=5)
 
-    Zone_de_liste=tk.Canvas(Cadre_liste,highlightthickness=0,height=180)
-    Defilerment_de_liste=ttk.Scrollbar(Cadre_liste,orient="vertical",command=Zone_de_liste.yview)
+    Zone_de_liste=tk.Canvas(Cadre_liste,highlightthickness=0,height=180) #une zone de dessin générique dans Tkinter
+    Defilerment_de_liste=ttk.Scrollbar(Cadre_liste,orient="vertical",command=Zone_de_liste.yview) #buton de efilement yview=déplacer la portion visible verticalement,
     cadre_checkboxes=ttk.Frame(Zone_de_liste)
 
-    cadre_checkboxes.bind(
-        "<Configure>",
-        lambda e: Zone_de_liste.configure(scrollregion=Zone_de_liste.bbox("all"))
+    cadre_checkboxes.bind( #declancher un evenement
+        "<Configure>", #levenement 
+        lambda e: Zone_de_liste.configure(scrollregion=Zone_de_liste.bbox("all")) #bbox=calculer la taille total de zone de liste all=tous le ville et case
     )
-    Zone_de_liste.create_window((0,0),window=cadre_checkboxes,anchor="nw")
-    Zone_de_liste.configure(yscrollcommand=Defilerment_de_liste.set)
+    Zone_de_liste.create_window((0,0),window=cadre_checkboxes,anchor="nw") #cree et placer la cas anchor="nw"=zon nord ouest
+    Zone_de_liste.configure(yscrollcommand=Defilerment_de_liste.set) #synchroniser la scrollbar avec le Canvas
 
-    Zone_de_liste.pack(side="left",fill="both",expand=True)
+    Zone_de_liste.pack(side="left",fill="both",expand=True) #fill=both ocuper l'space disponible horizontale et vertical
     Defilerment_de_liste.pack(side="right",fill="y")
 
     def defilement_liste_de_ville(evenement):
@@ -400,21 +484,21 @@ def Fenetre_Ville(parent):
 
     label_compteur.pack(side="left")
 
-    def maj_compteur():
+    def maj_compteur_ville():
             nb = sum(var.get() for var in villes_vars.values())
             label_compteur.config(text=f"{nb} ville(s) sélectionnée(s)")
     
     def sur_clic_case():
-        maj_compteur()
+        maj_compteur_ville()
         mettre_a_jour_tags_villes()
         afficher_villes(recherche_var.get())
     VILLES_TRIEES = sorted(VILLES)
     checkbox_widgets = {}
     for ville in VILLES_TRIEES:
-        chk = ttk.Checkbutton(
+        chk = ttk.Checkbutton( #cree le case a cocher
             cadre_checkboxes,
-            text=ville,
-            variable=villes_vars[ville],
+            text=ville, #text a coter du case
+            variable=villes_vars[ville], #variable qui stok letat dune ville
             command=sur_clic_case,
         )
         checkbox_widgets[ville] = chk
@@ -428,10 +512,10 @@ def Fenetre_Ville(parent):
                 checkbox_widgets[ville].pack(anchor="w", pady=2, padx=5)
 
     afficher_villes()
-    def on_recherche_change(*_):
+    def on_recherche_change(*_):# recevoir n'importe quel nombre d'arguments, mais on ne les utilise pas.(exmpel rabat dans le champs de saisi)
         afficher_villes(recherche_var.get())
     recherche_var.trace_add("write", on_recherche_change) #metre a jours se que lutilisateur saisi
-    maj_compteur()
+    maj_compteur_ville()
     ttk.Button(cadre_bas, text="Fermer", command=lambda: afficher_ou_masque_panau_ville()).pack(side="right")
 
 def afficher_ou_masque_panau_ville():
@@ -450,8 +534,8 @@ villes_vars.update({ville: tk.BooleanVar(value=False) for ville in VILLES})
 
 fenetre.title("Scripeur De Recruyement Python")
 fenetre.geometry("500x360")
-fenetre.columnconfigure(1,weight=1)
-fenetre.columnconfigure(2,weight=1)
+fenetre.columnconfigure(1,weight=1) #l’espace horizontal des colonnes 
+fenetre.columnconfigure(2,weight=1) #weight=hateur pour tous le colon
 fenetre.columnconfigure(3,weight=1)
 fenetre.rowconfigure(5,weight=1)
 

@@ -317,14 +317,93 @@ def Arreter():
     Statu.set("Arrêt demandé, patientez la fin de la page en cours...")
     Bouton_arrete.config(state="disabled")
     
-def Exporter():
+"""def Exporter():
     if Bouton_demarrer.cget("state")=="disabled":
         messagebox.showwarning("Atendre la fin dexportation")
     else:
         Tableau=pd.DataFrame(toutes_les_donnees)
         Tableau.to_excel("Fichier_Scripinge_Recrutement.xlsx", index=False)
         Statu.set(f"Tous les contenu Sont Exporter sur Excel")
+"""
 
+from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.utils import get_column_letter
+
+def Exporter():
+    if Bouton_demarrer.cget("state") == "disabled":
+        messagebox.showwarning("Attendre la fin d'exportation")
+        return
+
+    Tableau = pd.DataFrame(toutes_les_donnees)
+
+    # 1. Renommer les colonnes
+    mapping = {
+        "Entreprise ": "Company Name",
+        "Titre ": "Job Title",
+        "Localisation ": "City / Region",
+        "niveau": "Education Level Required",
+        "Technologie": "Tech Stack / Skills",
+        "Lien ": "Job Link",
+    }
+    Tableau = Tableau.rename(columns=mapping)
+
+    colonnes_finales = [
+        "Company Name", "Job Title", "City / Region",
+        "Education Level Required", "Tech Stack / Skills", "Job Link"
+    ]
+    Tableau = Tableau[colonnes_finales]
+
+    # 2. Convertir les listes en texte lisible
+    def liste_vers_texte(val):
+        if isinstance(val, list):
+            return ", ".join(val) if val else "N/A"
+        return val
+
+    for col in ["Tech Stack / Skills", "Education Level Required"]:
+        Tableau[col] = Tableau[col].apply(liste_vers_texte)
+
+    fichier = "Fichier_Scripinge_Recrutement.xlsx"
+
+    # 3. Export avec openpyxl comme moteur pour pouvoir styliser après
+    with pd.ExcelWriter(fichier, engine="openpyxl") as writer:
+        Tableau.to_excel(writer, index=False, sheet_name="IT Jobs Data")
+        worksheet = writer.sheets["IT Jobs Data"]
+
+        # --- Style de l'en-tête (fond bleu, texte blanc gras, centré) ---
+        entete_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+        entete_font = Font(bold=True, color="FFFFFF", size=11)
+        for cell in worksheet[1]:
+            cell.fill = entete_fill
+            cell.font = entete_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # --- Liens cliquables dans la colonne "Job Link" ---
+        col_lien_idx = colonnes_finales.index("Job Link") + 1  # +1 car openpyxl commence à 1
+        lien_lettre = get_column_letter(col_lien_idx)
+
+        for row in range(2, worksheet.max_row + 1):
+            cell = worksheet[f"{lien_lettre}{row}"]
+            url = cell.value
+            if url and url != "N/A":
+                cell.hyperlink = url
+                cell.value = "Voir l'offre"          # texte affiché au lieu de l'URL brute
+                cell.font = Font(color="0563C1", underline="single")  # bleu + souligné = style lien
+
+        # --- Largeur automatique des colonnes selon le contenu ---
+        for i, col_name in enumerate(colonnes_finales, start=1):
+            lettre = get_column_letter(i)
+            max_len = max(
+                Tableau[col_name].astype(str).map(len).max(),
+                len(col_name)
+            )
+            worksheet.column_dimensions[lettre].width = min(max_len + 3, 60)  # +3 marge, plafond à 60
+
+        # --- Renvoi à la ligne automatique pour les colonnes larges (ex: Tech Stack) ---
+        for row in worksheet.iter_rows(min_row=2):
+            for cell in row:
+                cell.alignment = Alignment(wrap_text=True, vertical="top")
+
+    Statu.set("Tous les contenus sont exportés sur Excel")
 
 def mettre_a_jour_tags_villes():# Nettoyer les anciens tags
     for widget in cadre_tags.winfo_children(): 
