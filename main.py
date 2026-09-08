@@ -15,6 +15,9 @@ import re                                       # Rgulare Expression detecter et
 import pandas as pd
 from openpyxl.styles import Font, PatternFill, Alignment #pour le style,couleur et position   
 from openpyxl.utils import get_column_letter  #numéro de colonne → lettre Excel
+from liste import technologies, niveaux_etudes, experience, type_contrat,mots_technicien,niveaux_master
+fenetre=tk.Tk()
+
 
 def Normaliser(texte):
     texte = texte.strip().lower() 
@@ -31,7 +34,9 @@ def extraire_correspondances(texte_source, liste_reference, seuil=88):
         ref_norm = Normaliser(ref)
         if ref_norm in texte_norm:
             trouves.append(ref)
+            
             continue
+
         if len(ref_norm) >= 4:
             score = fuzz.partial_ratio(ref_norm, texte_norm)
             if score >= seuil:
@@ -39,6 +44,7 @@ def extraire_correspondances(texte_source, liste_reference, seuil=88):
     return trouves
 
 
+    
 def detect_security_mechanism(html):
     html_lower = html.lower()
     indicators = ["captcha","recaptcha",
@@ -180,7 +186,7 @@ def collecter_donnees_brutes(html):
         Entreprise_el = element.select_one(".base-search-card__subtitle")
         Localisation_el = element.select_one(".job-search-card__location")
         lien_el = element.select_one(".base-card__full-link")
-        source=urlparse(BASE_URL).netloc.replace("www.","").split(".")[0]
+        Source_de_auffre=urlparse(BASE_URL).netloc.replace("www.","").split(".")[0]
         Statut_el = element.select_one(".job-search-card_closed-notice, .job-search-cardbenefits, .base-search-card_metadata .job-posting-benefits")
         Statut_offre = "Désactivé" if Statut_el else "Activé"
         try:
@@ -207,6 +213,12 @@ def collecter_donnees_brutes(html):
         Contacte_Recruteur=contact.get_text(strip=True) if contact else ""
         Posting_Date_Status_Detail = (f"{Statut_offre if Statut_offre else 'statut inconnu'} | "f"{Date if Date else 'date inconnue'}")
 
+        technicien_trouve = extraire_correspondances(texte_element,mots_technicien,85)
+        Master_Trouver=extraire_correspondances(texte_element,niveaux_master,85)
+        if Master_Trouver:
+            Niveau = ["BAC+5-Master"]
+        elif technicien_trouve:
+            Niveau = ["BAC+2"]
         if not Titre and not Entreprise:
             continue
 
@@ -216,7 +228,7 @@ def collecter_donnees_brutes(html):
             "Localisation ": Localisation if Localisation else "N/A",
             "Lien ": Lien if Lien else "N/A",
             "Technologie":Technologie if Technologie else "N/A",
-            "sourcev ":Statut_offre if Statut_offre else "N/A",
+            "source ":Source_de_auffre if Source_de_auffre else "N/A",
             "date ":Date if Date else "N/A",
             "Contra ":Contrat if Contrat else "N/A",
             "niveau":Niveau if Niveau else "N/A",
@@ -226,9 +238,12 @@ def collecter_donnees_brutes(html):
             "Posting_Date_Status_Detail :":Posting_Date_Status_Detail if Posting_Date_Status_Detail else "N/A"
         })
 
+
     return Donner_Bruit
 
 stop_event = threading.Event() # Permet de communiquer un signal d'arrêt entre les deux threads
+
+
 
 #Fonction exécutée dans le thread séparé
 def recherche_thread(Poste_Rechercher, Liste_localisations, nb_pages):
@@ -279,6 +294,7 @@ def recherche_thread(Poste_Rechercher, Liste_localisations, nb_pages):
         print("")
 
     Statu.set(f"Recherche terminée : {len(toutes_les_donnees)} résultat(s) trouvé(s) sur {nb_pages} page(s) en {duree_totale:.1f}s")
+    fenetre.after(0, progress.stop)   
     fenetre.after(0,lambda:Bouton_demarrer.config(state="normal")) # reactiver bouton 
     fenetre.after(0,lambda:Bouton_arrete.config(state="disabled"))# descativer
      
@@ -304,6 +320,8 @@ def Recherhce():
 
     Bouton_demarrer.config(state="disabled") #descativer pendant lexecution 
     Bouton_arrete.config(state="normal")
+
+    progress.start(15)  # 10 = vitesse de l'animation en ms
     threading.Thread(       #Lancer la recherche dans un thread séparé pour :
                             #Ne pas bloquer l'interface Tkinter
                             #Éviter le conflit entre le boucl de tkinter et celui de playwright
@@ -318,8 +336,13 @@ def Arreter():
     stop_event.set() #declancher le signal
     Statu.set("Arrêt demandé, patientez la fin de la page en cours...")
     Bouton_arrete.config(state="disabled")
+
+Donner_Exporter = False  # à mettre avec tes autres variables globales, avant Recherhce()
     
 def Exporter():
+    global Donner_Exporter
+    Donner_Exporter=False
+    global toutes_les_donnees
     if Bouton_demarrer.cget("state") == "disabled":
         messagebox.showwarning("Attendre la fin d'exportation")
         return
@@ -332,7 +355,7 @@ def Exporter():
         "Localisation ": "City / Region",
         "Lien ": "Job Link",
         "Technologie": "Tech Stack / Skills",
-        "sourcev ": "Offer Status",
+        "source ": "source",
         "date ": "Posted Date",
         "Contra ": "Contract Type",
         "niveau": "Education Level Required",
@@ -348,7 +371,7 @@ def Exporter():
         "Company Name", "Job Title", "City / Region", "Job Link",
         "Education Level Required", "Tech Stack / Skills",
         "Contract Type", "Experience Required", "Salary",
-        "Offer Status", "Posted Date", "Status / Date Detail",
+        "source", "Posted Date", "Status / Date Detail",
         "Recruiter Contact",
     ]
     colonnes_finales = [c for c in ordre_souhaite if c in Tableau.columns]
@@ -391,7 +414,7 @@ def Exporter():
             lettre = get_column_letter(i)
             if col_name == "Job Link":
                 # largeur fixe, indépendante de la longueur réelle de l'URL
-                worksheet.column_dimensions[lettre].width = 20
+                worksheet.column_dimensions[lettre].width = 30
             else:
                 max_len = max(
                     Tableau[col_name].astype(str).map(len).max(),
@@ -403,14 +426,33 @@ def Exporter():
         for row in worksheet.iter_rows(min_row=2):
             for cell in row:
                 if col_lien_idx and cell.column == col_lien_idx: # si se une ligne 
-                    cell.alignment = Alignment(wrap_text=False, vertical="top", horizontal="left")
-                else:                        #1seul ligne       haut             a gauche 
-                    cell.alignment = Alignment(wrap_text=True, vertical="top")
+                    cell.alignment = Alignment(wrap_text=False, vertical="center", horizontal="left")
+                else:                        #1seul ligne       
+                    cell.alignment = Alignment(wrap_text=True, vertical="center")
 
         for row_idx in range(2, worksheet.max_row + 1):
-            worksheet.row_dimensions[row_idx].height = 30
+            worksheet.row_dimensions[row_idx].height = 25
                      #acceder a la ligen 
     Statu.set("Tous les contenus sont exportés sur Excel")
+    Donner_Exporter=True
+
+def Sauvergarder():
+    if toutes_les_donnees and not Donner_Exporter:
+        try:
+            Tableau=pd.DataFrame(toutes_les_donnees)
+            Tableau.to_csv("Fichier_sauvergarder_sans_exporter.csv",index=False,encoding="UTF-8")
+        except Exception as e:
+            print(f"Eureur d'exportetain {e}") 
+def Onclique():
+    if toutes_les_donnees and not Donner_Exporter:
+        reponse=messagebox.askyesnocancel("Vous avez des donner non Exporter voulez vous le sauvergader")
+        if reponse is None:
+            return
+        else:
+            Sauvergarder()
+    stop_event.set()
+    fenetre.destroy()
+fenetre.protocol("WM_DELETE_WINDOW", Onclique)
 
 villes_vars = {}
 
@@ -529,7 +571,6 @@ def afficher_ou_masque_panau_ville():
         Bouton_choisir_ville.config(text=f"Choisir Ville ({sum(v.get() for v in villes_vars.values())} villes) ▲")
         panel_ouvert = True
 
-fenetre=tk.Tk()
 villes_vars.update({ville: tk.BooleanVar(value=False) for ville in VILLES})
 
 fenetre.title("Scripeur De Recruyement Python")
@@ -550,7 +591,7 @@ cadre_tags.grid(row=1, column=1, columnspan=3, padx=10, pady=2, sticky="ew")
 
 #localisation
 tk.Label(fenetre,text="Localisation (Ville):").grid(row=2,column=0,padx=10,pady=10,sticky="ew")  
-Bouton_choisir_ville = tk.Button(fenetre, text="Choisir Ville (0 villes)", command=afficher_ou_masque_panau_ville)
+Bouton_choisir_ville = tk.Button(fenetre, text="Choisir Ville (0 villes)", command=afficher_ou_masque_panau_ville,bg="#26e362")
 Bouton_choisir_ville.grid(row=2,column=1,columnspan=3,padx=10,pady=10,sticky="ew")
 
 
@@ -564,6 +605,7 @@ cadre_panel_villes.grid_remove()
 tk.Label(fenetre,text="Page :").grid(row=4,column=0,columnspan=3,padx=10,pady=10,sticky="w")
 Nombre_de_Page=tk.Entry(fenetre,width=40)
 Nombre_de_Page.grid(row=4,column=1,columnspan=3,padx=10,pady=10,sticky="ew")
+
 
 #Boutton
 Bouton_demarrer=tk.Button(fenetre,text="Démarrer",command=Recherhce,bg="#26e362",width=13)
@@ -580,5 +622,16 @@ Bouton_Exporter.grid(row=5,column=2,padx=10,pady=10,sticky="ew")
 Statu=tk.StringVar() # mettre a jours Statue automatiquement
 Statu.set("Saisissez les paramètres puis cliquez sur Démarrer pour lancer la Rechercher")
 tk.Label(fenetre, textvariable=Statu, bd=3, relief="sunken", anchor="w").grid(row=6, column=0, columnspan=4, sticky="ew")
+
+style = ttk.Style()
+style.theme_use("clam")
+style.configure(
+    "Vert.Horizontal.TProgressbar",
+    troughcolor="#e0e0e0",
+    background="#26e362",
+    thickness=15
+)
+progress = ttk.Progressbar(fenetre, mode="indeterminate", style="Vert.Horizontal.TProgressbar")
+progress.grid(row=7, column=0, columnspan=4, padx=10, pady=(0,10), sticky="ew")
 
 fenetre.mainloop()
