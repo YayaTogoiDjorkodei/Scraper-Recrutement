@@ -1,9 +1,12 @@
-def charger_liste_ip(chemin="IP_proxies.txt"):
+from scraper_config import SETTINGS
+
+
+def charger_liste_ip(chemin=SETTINGS["proxy_file"]):
     try:
         with open(chemin , "r",encoding="UTF-8") as f:
             return [ligne.strip() for ligne in f if ligne.strip()]
     except Exception as e:
-        print(f"Fichier {chemin} introuvable")
+        print("Fichier de proxies inaccessible ; vérifiez la configuration locale.")
         return []
 
 import requests

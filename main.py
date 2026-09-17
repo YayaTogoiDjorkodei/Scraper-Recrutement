@@ -15,8 +15,12 @@ import re                                       # Rgulare Expression detecter et
 import pandas as pd
 from openpyxl.styles import Font, PatternFill, Alignment #pour le style,couleur et position   
 from openpyxl.utils import get_column_letter  #numéro de colonne → lettre Excel
-from liste import technologies, niveaux_etudes, experience, type_contrat,mots_technicien,niveaux_master
+from liste import technologies, niveaux_etudes, experience, type_contrat
+from reference_overrides import mots_technicien, niveaux_master
+from scraper_config import SETTINGS, prepare_tk, error_kind
+prepare_tk()
 fenetre=tk.Tk()
+toutes_les_donnees = []  # Fermer avant la première recherche doit rester possible.
 
 
 def Normaliser(texte):
@@ -74,15 +78,19 @@ HEADERS = {
    "User-Agent": user.random
 }
 
-def charger_liste_ip(chemin="IP_proxies.txt"):
+def charger_liste_ip(chemin=SETTINGS["proxy_file"]):
     try:
         with open(chemin , "r",encoding="UTF-8") as f:
             return [ligne.strip() for ligne in f if ligne.strip()]
     except Exception as e:
-        print(f"Fichier {chemin} introuvable")
+        print("Fichier de proxies inaccessible ; vérifiez la configuration locale.")
         return []
 
-def charger_villes_geonames(nb_max=1000, username="Yaya_Togoi_Djorkodei"):
+def charger_villes_geonames(nb_max=1000, username=None):
+    username = SETTINGS["geonames_username"] if username is None else username
+    if not username:
+        print("Renseignez GEONAMES_USERNAME ou settings.local.ini pour charger les villes.")
+        return []
     url = "http://api.geonames.org/searchJSON"
     params = {
         "featureClass": "P",     # P = ville / lieu habité
@@ -97,10 +105,10 @@ def charger_villes_geonames(nb_max=1000, username="Yaya_Togoi_Djorkodei"):
         villes = [v["name"] for v in data.get("geonames", []) if v.get("name")]
         return sorted(set(villes))   # tri alphabétique + suppression doublons
     except requests.RequestException as e:
-        print(f"Erreur API GeoNames : {e}")
+        print(f"Erreur API GeoNames : {error_kind(e)}")
         return []
 
-VILLES = charger_villes_geonames(nb_max=1000, username="Yaya_Togoi_Djorkodei")
+VILLES = charger_villes_geonames(nb_max=1000)
 
 def Recherche_par_request(postes, localisation, start=0):
     params = {"keywords": postes, "location": localisation, "start": start}
@@ -121,7 +129,7 @@ def Recherche_par_request(postes, localisation, start=0):
         reponse.raise_for_status() 
         return reponse.text
     except requests.RequestException as e:
-        print(f"Erreur requête : {e}")
+        print(f"Erreur requête : {error_kind(e)}")
         return None
 
 
@@ -146,7 +154,7 @@ def recuperer_page_playwright(postes, localisation, start=0):
             try:
                 page.goto(url, timeout=30000, wait_until="domcontentloaded") # charger le l'url et attender le html et le js
             except Exception as e:                                           # intercepter leureur 
-                print(f"Erreur lors du chargement de la page : {e}")
+                print(f"Erreur lors du chargement de la page : {error_kind(e)}")
                 browser.close()                                              # ferfer larieur plan
                 return None
 
@@ -163,7 +171,7 @@ def recuperer_page_playwright(postes, localisation, start=0):
             return html
 
     except Exception as e:
-        print(f"Erreur Playwright : {e}")
+        print(f"Erreur Playwright : {error_kind(e)}")
         return None
 
 
@@ -442,7 +450,7 @@ def Sauvergarder():
             Tableau=pd.DataFrame(toutes_les_donnees)
             Tableau.to_csv("Fichier_sauvergarder_sans_exporter.csv",index=False,encoding="UTF-8")
         except Exception as e:
-            print(f"Eureur d'exportetain {e}") 
+            print(f"Eureur d'exportetain {error_kind(e)}")
 def Onclique():
     if toutes_les_donnees and not Donner_Exporter:
         reponse=messagebox.askyesnocancel("Vous avez des donner non Exporter voulez vous le sauvergader")

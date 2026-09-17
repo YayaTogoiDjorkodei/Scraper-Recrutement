@@ -1,0 +1,142 @@
+{
+  "main.py": {
+    "baseline_commit": "43676ab",
+    "reference_commit": "23f5eb8",
+    "missing_helpers": "reconstructed in reference_overrides.py",
+    "fixture": "linkedin_cards.html",
+    "records": [
+      {
+        "Titre ": "D�veloppeur Python",
+        "Entreprise ": "Soci�t� Exemple",
+        "Localisation ": "Rabat",
+        "Lien ": "https://www.linkedin.com/jobs/view/123456?trk=fixture",
+        "Technologie": [
+          "C",
+          "CI",
+          "Docker",
+          "Python",
+          "SOC"
+        ],
+        "source ": "linkedin",
+        "date ": "Il y a 2 jours",
+        "Contra ": [
+          "CDI"
+        ],
+        "niveau": [
+          "BAC+5-Master"
+        ],
+        "salaire ": "20 000 MAD",
+        "contacte :": "N/A",
+        "Experienc:": [
+          "3 ans"
+        ],
+        "Posting_Date_Status_Detail :": "Activ� | Il y a 2 jours"
+      },
+      {
+        "Titre ": "Technicien support",
+        "Entreprise ": "Entreprise D�mo",
+        "Localisation ": "Casablanca",
+        "Lien ": "https://www.linkedin.com/jobs/view/654321",
+        "Technologie": [
+          "C",
+          "CI",
+          "ISE",
+          "LAN",
+          "Linux",
+          "Windows"
+        ],
+        "source ": "linkedin",
+        "date ": "N/A",
+        "Contra ": "N/A",
+        "niveau": [
+          "BAC+2"
+        ],
+        "salaire ": "N/A",
+        "contacte :": "N/A",
+        "Experienc:": "N/A",
+        "Posting_Date_Status_Detail :": "D�sactiv� | date inconnue"
+      }
+    ],
+    "unchanged_function_hashes": {
+      "Normaliser": "2fd6b9f992ee634744c436cfc28a74cc8008e643d47e5629213fec29d8268bae",
+      "extraire_correspondances": "6d4715faa224fffdabf532af5f962a60b3aac3edc3b817f8a7488111227c9fd6",
+      "detect_security_mechanism": "897305dae515b89fcdeac5d32ab20b398bf3be8896dece356eb3cdc0650518e0",
+      "collecter_donnees_brutes": "23d72ba3c548fd0344ceab31a1c0eebc0070c851d9ca6e97239849530b4b47e9",
+      "recherche_thread": "0cff75ceef8b57a82ed9e76559e2f03ab41d5ace7e69654dfdef897d9a7dbcc0",
+      "Recherhce": "cee0377e43fa62317846927a0322b3dbfdc7d0c8e9b95bf0d9e6cce692235cdd",
+      "Arreter": "c17b5e57a46d9abf684d32c5101ed589bcb844979b47496f5edead75b21a3592",
+      "Exporter": "4bb4e3a0e510a84b67e58dc75d3309e49ea8c5a8ac9194fa9232a50cdfa0818a",
+      "Onclique": "d957e540d03d6e70c127aa57b1fcdcc045fb4f590ce1a6d09e4a16aa794045f5"
+    }
+  },
+  "indeed.py": {
+    "baseline_commit": "43676ab",
+    "reference_commit": "23f5eb8",
+    "missing_helpers": "reconstructed in reference_overrides.py",
+    "fixture": "indeed_cards.html",
+    "records": [
+      {
+        "Titre ": "D�veloppeur JavaScript",
+        "Entreprise ": "Soci�t� Exemple",
+        "Localisation ": "Rabat",
+        "Lien ": "https://www.indeed.com/viewjob?jk=fixture123",
+        "Technologie": [
+          "C",
+          "CI",
+          "Docker",
+          "Java",
+          "JavaScript",
+          "SOC"
+        ],
+        "sourcev ": "D�sactiv�",
+        "date ": "Il y a 3 jours",
+        "Contra ": [
+          "CDI"
+        ],
+        "niveau": [
+          "master"
+        ],
+        "salaire ": "18 000 MAD",
+        "contacte :": "N/A",
+        "Experienc:": [
+          "3 ans"
+        ],
+        "Posting_Date_Status_Detail :": "D�sactiv� | Il y a 3 jours"
+      },
+      {
+        "Titre ": "Technicien support",
+        "Entreprise ": "Entreprise D�mo",
+        "Localisation ": "Casablanca",
+        "Lien ": "https://www.indeed.com/viewjob?jk=fixture456",
+        "Technologie": [
+          "C",
+          "CI",
+          "ISE",
+          "LAN",
+          "Linux",
+          "Windows"
+        ],
+        "sourcev ": "Activ�",
+        "date ": "N/A",
+        "Contra ": "N/A",
+        "niveau": [
+          "BTS"
+        ],
+        "salaire ": "N/A",
+        "contacte :": "N/A",
+        "Experienc:": "N/A",
+        "Posting_Date_Status_Detail :": "Activ� | date inconnue"
+      }
+    ],
+    "unchanged_function_hashes": {
+      "Normaliser": "2fd6b9f992ee634744c436cfc28a74cc8008e643d47e5629213fec29d8268bae",
+      "extraire_correspondances": "6d4715faa224fffdabf532af5f962a60b3aac3edc3b817f8a7488111227c9fd6",
+      "detect_security_mechanism": "897305dae515b89fcdeac5d32ab20b398bf3be8896dece356eb3cdc0650518e0",
+      "collecter_donnees_brutes": "e9147b6fa070355207ff252bc5cf590ba34e8d9c4fdd94ac223f4f7061de4801",
+      "recherche_thread": "7691ad38b517fa39475b497ea108ce90eedb74f491722ea61ee52f474ecaeb01",
+      "Recherhce": "b1df27392a290a6f934d8e6217ead3d7fdc1e31f08e66bef83888e1f9ff0996b",
+      "Arreter": "c17b5e57a46d9abf684d32c5101ed589bcb844979b47496f5edead75b21a3592",
+      "Exporter": "2ab914258fe62763010ef5de6a29e7e0c9df6b54446ba9263131aa1f3fd71389"
+    }
+  }
+}
