@@ -1,7 +1,6 @@
 import ast
 import hashlib
 import json
-import re
 
 import liste
 import reference_overrides
@@ -9,21 +8,6 @@ from tests.legacy_harness import FIXTURES, ROOT, OfflineTestCase, canonical_reco
 
 
 class BaselineTests(OfflineTestCase):
-    @staticmethod
-    def _stable_text(value):
-        # The legacy Normaliser currently emits replacement characters for
-        # accented fixture text. Keep that behavior under test without making
-        # the JSON encoding of the snapshot significant.
-        if not isinstance(value, str):
-            return value
-        return re.sub(r"(?:<accent>)+", "<accent>", "".join(ch if ord(ch) < 128 else "<accent>" for ch in value))
-
-    @classmethod
-    def _stable_records(cls, records):
-        return [{key: cls._stable_text(value) if isinstance(value, str) else
-                 [cls._stable_text(item) for item in value] if isinstance(value, list) else value
-                 for key, value in row.items()} for row in records]
-
     def test_recovered_vocabulary_matches_historical_fingerprint(self):
         values = dict(technologies=sorted(liste.technologies), niveaux_etudes=liste.niveaux_etudes,
                       experience=liste.experience, type_contrat=liste.type_contrat)
@@ -43,6 +27,8 @@ class BaselineTests(OfflineTestCase):
             tree = ast.parse((ROOT / source).read_text(encoding="utf-8-sig"))
             functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
             for name, digest in snapshot["unchanged_function_hashes"].items():
+                if source == "main.py" and name == "Onclique":
+                    continue  # v2 fixes the legacy close-time data-loss behavior.
                 with self.subTest(source=source, function=name):
                     actual = hashlib.sha256(ast.dump(functions[name], include_attributes=False).encode()).hexdigest()
                     self.assertEqual(actual, digest, "Stage 1 must not silently rewrite the scraper core")
@@ -53,7 +39,7 @@ class BaselineTests(OfflineTestCase):
             with self.subTest(source=source):
                 ns = load_functions(source)
                 actual = canonical_records(ns["collecter_donnees_brutes"](fixture(snapshot["fixture"])))
-                self.assertEqual(self._stable_records(actual), self._stable_records(snapshot["records"]))
+                self.assertEqual(actual, canonical_records(snapshot["records"]))
 
     def test_both_normalizers_preserve_current_rules(self):
         for source in ("main.py", "indeed.py"):
@@ -86,6 +72,13 @@ class BaselineTests(OfflineTestCase):
             for html in (None, "", fixture("missing_selectors.html"), fixture("empty_results.html")):
                 with self.subTest(source=source, html=html):
                     self.assertEqual(parse(html), [])
+
+    def test_valid_utf8_source_text_is_preserved(self):
+        parse = load_functions("main.py")["collecter_donnees_brutes"]
+        result = parse(fixture("unicode_linkedin_card.html"))
+        self.assertEqual(result[0]["Titre "], "D\u00e9veloppeur s\u00e9curit\u00e9")
+        self.assertEqual(result[0]["Entreprise "], "Soci\u00e9t\u00e9 \u00c9toile")
+        self.assertEqual(result[0]["Localisation "], "F\u00e8s")
 
     def test_challenge_detector_reports_current_indicators(self):
         for source in ("main.py", "indeed.py"):

@@ -10,6 +10,11 @@ settings.local.ini
 .env.*
 !.env.example
 .local/
+.corporate_scraper/
+results/
+build/
+dist/
+*.spec
 .pytest_cache/
 *.egg-info/
 # Generated close-time backup; contains collected data.

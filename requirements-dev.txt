@@ -1,0 +1,5 @@
+# Development and UI-test dependencies. Runtime dependencies are locked above.
+-r requirements-lock.txt
+pytest>=9.0,<10
+pytest-qt==4.5.0
+pyinstaller>=6.10,<7

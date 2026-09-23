@@ -449,15 +449,18 @@ def Sauvergarder():
         try:
             Tableau=pd.DataFrame(toutes_les_donnees)
             Tableau.to_csv("Fichier_sauvergarder_sans_exporter.csv",index=False,encoding="UTF-8")
+            return True
         except Exception as e:
             print(f"Eureur d'exportetain {error_kind(e)}")
+            return False
+    return True
 def Onclique():
     if toutes_les_donnees and not Donner_Exporter:
         reponse=messagebox.askyesnocancel("Vous avez des donner non Exporter voulez vous le sauvergader")
         if reponse is None:
             return
-        else:
-            Sauvergarder()
+        if reponse and not Sauvergarder():
+            return
     stop_event.set()
     fenetre.destroy()
 fenetre.protocol("WM_DELETE_WINDOW", Onclique)

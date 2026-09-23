@@ -1,0 +1,15 @@
+{
+  "files.exclude": {
+    "**/.git": true,
+    "**/.venv": true,
+    "**/__pycache__": true,
+    ".corporate_scraper": true,
+    "tests": true,
+    "main.py": true,
+    "indeed.py": true,
+    "liste.py": true,
+    "reference_overrides.py": true,
+    "procyverification.py": true,
+    "scraper_config.py": true
+  }
+}

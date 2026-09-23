@@ -34,7 +34,7 @@ class Stage1SafetyTests(OfflineTestCase):
             finally:
                 os.chdir(old)
 
-    def test_save_before_exit_keeps_current_no_cancel_behavior(self):
+    def test_save_before_exit_respects_no_and_keeps_yes_behavior(self):
         ns = load_functions("main.py")
         ns["toutes_les_donnees"] = [{"Titre ": "unsaved"}]
         ns["messagebox"].askyesnocancel.return_value = False
@@ -42,8 +42,12 @@ class Stage1SafetyTests(OfflineTestCase):
             old = os.getcwd(); os.chdir(folder)
             try:
                 ns["Onclique"]()
+                self.assertFalse(Path("Fichier_sauvergarder_sans_exporter.csv").exists())
+                ns["fenetre"].destroy.assert_called_once()
+                ns["fenetre"].destroy.reset_mock()
+                ns["messagebox"].askyesnocancel.return_value = True
+                ns["Onclique"]()
                 self.assertTrue(Path("Fichier_sauvergarder_sans_exporter.csv").exists())
                 ns["fenetre"].destroy.assert_called_once()
             finally:
                 os.chdir(old)
-

@@ -6,8 +6,8 @@
     "fixture": "linkedin_cards.html",
     "records": [
       {
-        "Titre ": "D�veloppeur Python",
-        "Entreprise ": "Soci�t� Exemple",
+        "Titre ": "D\u00e9veloppeur Python",
+        "Entreprise ": "Soci\u00e9t\u00e9 Exemple",
         "Localisation ": "Rabat",
         "Lien ": "https://www.linkedin.com/jobs/view/123456?trk=fixture",
         "Technologie": [
@@ -30,11 +30,11 @@
         "Experienc:": [
           "3 ans"
         ],
-        "Posting_Date_Status_Detail :": "Activ� | Il y a 2 jours"
+        "Posting_Date_Status_Detail :": "Activ\u00e9 | Il y a 2 jours"
       },
       {
         "Titre ": "Technicien support",
-        "Entreprise ": "Entreprise D�mo",
+        "Entreprise ": "Entreprise D\u00e9mo",
         "Localisation ": "Casablanca",
         "Lien ": "https://www.linkedin.com/jobs/view/654321",
         "Technologie": [
@@ -54,7 +54,7 @@
         "salaire ": "N/A",
         "contacte :": "N/A",
         "Experienc:": "N/A",
-        "Posting_Date_Status_Detail :": "D�sactiv� | date inconnue"
+        "Posting_Date_Status_Detail :": "D\u00e9sactiv\u00e9 | date inconnue"
       }
     ],
     "unchanged_function_hashes": {
@@ -76,8 +76,8 @@
     "fixture": "indeed_cards.html",
     "records": [
       {
-        "Titre ": "D�veloppeur JavaScript",
-        "Entreprise ": "Soci�t� Exemple",
+        "Titre ": "D\u00e9veloppeur JavaScript",
+        "Entreprise ": "Soci\u00e9t\u00e9 Exemple",
         "Localisation ": "Rabat",
         "Lien ": "https://www.indeed.com/viewjob?jk=fixture123",
         "Technologie": [
@@ -88,7 +88,7 @@
           "JavaScript",
           "SOC"
         ],
-        "sourcev ": "D�sactiv�",
+        "sourcev ": "D\u00e9sactiv\u00e9",
         "date ": "Il y a 3 jours",
         "Contra ": [
           "CDI"
@@ -101,11 +101,11 @@
         "Experienc:": [
           "3 ans"
         ],
-        "Posting_Date_Status_Detail :": "D�sactiv� | Il y a 3 jours"
+        "Posting_Date_Status_Detail :": "D\u00e9sactiv\u00e9 | Il y a 3 jours"
       },
       {
         "Titre ": "Technicien support",
-        "Entreprise ": "Entreprise D�mo",
+        "Entreprise ": "Entreprise D\u00e9mo",
         "Localisation ": "Casablanca",
         "Lien ": "https://www.indeed.com/viewjob?jk=fixture456",
         "Technologie": [
@@ -116,7 +116,7 @@
           "Linux",
           "Windows"
         ],
-        "sourcev ": "Activ�",
+        "sourcev ": "Activ\u00e9",
         "date ": "N/A",
         "Contra ": "N/A",
         "niveau": [
@@ -125,7 +125,7 @@
         "salaire ": "N/A",
         "contacte :": "N/A",
         "Experienc:": "N/A",
-        "Posting_Date_Status_Detail :": "Activ� | date inconnue"
+        "Posting_Date_Status_Detail :": "Activ\u00e9 | date inconnue"
       }
     ],
     "unchanged_function_hashes": {
