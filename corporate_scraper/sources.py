@@ -59,8 +59,9 @@ class SourceAdapter(ABC):
             href = urljoin(job_url, link.get("href", ""))
             lowered = href.casefold()
             if "/in/" in lowered and href.startswith(("https://", "http://")):
-                candidates.append(("public_poster", href))
-                break
+                candidates.append(("recruiter_linkedin_profile", href))
+            if "linkedin.com/company/" in lowered and href.startswith(("https://", "http://")):
+                candidates.append(("company_linkedin_profile", href))
         for script in soup.select("script[type='application/ld+json']"):
             try:
                 payload = json.loads(script.string or script.get_text())
@@ -77,12 +78,26 @@ class SourceAdapter(ABC):
                     values = value if isinstance(value, list) else (value,)
                     for candidate in values:
                         if isinstance(candidate, str) and candidate.startswith(("https://", "http://")):
-                            candidates.append(("company_site", candidate))
+                            candidates.append(("company_website", candidate))
                             break
-                    if candidates and candidates[-1][0] == "company_site":
+                    if candidates and candidates[-1][0] == "company_website":
                         break
-                if candidates and candidates[-1][0] == "company_site":
+                if candidates and candidates[-1][0] == "company_website":
                     break
+        page_host = (urlsplit(job_url).hostname or "").casefold()
+        is_company_page = "linkedin.com" in page_host and "/company/" in urlsplit(job_url).path.casefold()
+        is_company_site = "linkedin.com" not in page_host
+        if is_company_page or is_company_site:
+            for link in soup.select("a[href]"):
+                href = urljoin(job_url, link.get("href", ""))
+                text = " ".join((link.get_text(" ", strip=True), link.get("aria-label", ""))).casefold()
+                host = (urlsplit(href).hostname or "").casefold()
+                if not href.startswith(("https://", "http://")) or host == page_host:
+                    continue
+                if "linkedin.com" in host:
+                    continue
+                if any(marker in text or marker in href.casefold() for marker in ("site", "website", "web", "contact", "contactez", "nous joindre")):
+                    candidates.append(("company_contact_page" if "contact" in text or "contact" in href.casefold() else "company_website", href))
         return tuple(dict.fromkeys(candidates))
 
     @abstractmethod

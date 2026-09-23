@@ -36,6 +36,7 @@ class JobOffer:
     contact_email: str = ""
     contact_status: str = "not_requested"
     contact_level: str = ""
+    contact_confidence: int | None = None
 
 
 def sample_offers() -> list[JobOffer]:

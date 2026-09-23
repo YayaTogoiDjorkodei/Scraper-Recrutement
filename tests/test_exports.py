@@ -14,7 +14,7 @@ def test_default_workbook_has_safe_values_links_and_evidence(tmp_path):
     store.commit_detail(run_id, "safe", "Description complète", "available", "verified",
                         (FieldEvidence("skill_required", "Python", "Python requis", "exact", 100),))
     store.commit_contact(run_id, "safe", status="found", email="jobs@acme.ma", level="job_post",
-                         url="https://example.test/job", source="linkedin")
+                         url="https://example.test/job", confidence=100, source="linkedin")
 
     output = export_study(store, run_id, tmp_path / "market.xlsx", include_descriptions=True)
 
@@ -30,7 +30,9 @@ def test_default_workbook_has_safe_values_links_and_evidence(tmp_path):
     assert jobs.tables['Jobs'].autoFilter.ref == jobs.dimensions
     assert workbook["Requirements"]["E2"].value == "Python"
     assert workbook["Contacts"]["D2"].value == "jobs@acme.ma"
+    assert workbook["Contacts"]["G2"].value == 100
     assert jobs["O2"].value == "jobs@acme.ma"
+    assert jobs["R2"].value == 100
 
 
 def test_export_can_limit_output_to_selected_offer_ids(tmp_path):

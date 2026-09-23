@@ -17,7 +17,9 @@ class Adapter(SourceAdapter):
 
 class ContactAdapter(Adapter):
     def public_contact_pages(self, html, job_url):
-        return (("public_poster", "https://fixture.test/poster"), ("company_site", "https://acme.example/contact"))
+        if job_url.endswith("/company"):
+            return (("company_contact_page", "https://acme.example/contact"),)
+        return (("recruiter_linkedin_profile", "https://fixture.test/poster"), ("company_linkedin_profile", "https://fixture.test/company"))
 
 
 class Transport:
@@ -156,7 +158,7 @@ def test_contact_lookup_prefers_a_visible_email_in_the_job_post(tmp_path):
     CollectionRunner(store, {"fixture": ContactAdapter()}, {"fixture": transport}).run(run_id, spec)
 
     row = store.offers(run_id)[0]
-    assert (row["contact_email"], row["contact_level"], row["contact_status"]) == ("jobs@acme.ma", "job_post", "found")
+    assert (row["contact_email"], row["contact_level"], row["contact_status"], row["contact_confidence"]) == ("jobs@acme.ma", "job_post", "found", 100)
     assert transport.urls == ["search:0", "https://fixture.test/one"]
 
 
@@ -166,10 +168,26 @@ def test_contact_lookup_uses_explicit_public_pages_then_records_not_found(tmp_pa
     run_id = store.create_run(spec)
     transport = Transport({"search:0": response("one"), "https://fixture.test/one": response("No email"),
                            "https://fixture.test/poster": response("Contact recruiter@acme.ma"),
+                           "https://fixture.test/company": response("No email"),
                            "https://acme.example/contact": response("company@acme.ma")})
 
     CollectionRunner(store, {"fixture": ContactAdapter()}, {"fixture": transport}).run(run_id, spec)
 
     row = store.offers(run_id)[0]
-    assert (row["contact_email"], row["contact_level"]) == ("recruiter@acme.ma", "public_poster")
+    assert (row["contact_email"], row["contact_level"], row["contact_confidence"]) == ("recruiter@acme.ma", "recruiter_linkedin_profile", 88)
     assert "https://acme.example/contact" not in transport.urls
+
+
+def test_contact_lookup_reaches_company_contact_page_after_public_profiles(tmp_path):
+    store = StudyStore(tmp_path / "studies.db")
+    spec = RunSpec(name="Deep contact", queries=("python",), cities=("Rabat",), sources=("fixture",), target=1, max_pages=1)
+    run_id = store.create_run(spec)
+    transport = Transport({"search:0": response("one"), "https://fixture.test/one": response("No email"),
+                           "https://fixture.test/poster": response("No email"), "https://fixture.test/company": response("No email"),
+                           "https://acme.example/contact": response("Write to hiring@acme.example")})
+
+    CollectionRunner(store, {"fixture": ContactAdapter()}, {"fixture": transport}).run(run_id, spec)
+
+    row = store.offers(run_id)[0]
+    # Contact page is 90%; matching its official page domain earns the 7-point boost.
+    assert (row["contact_email"], row["contact_level"], row["contact_confidence"]) == ("hiring@acme.example", "company_contact_page", 97)

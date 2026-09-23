@@ -53,6 +53,13 @@ def test_public_contact_candidates_only_use_explicit_profile_and_company_links()
     html = """<a href='https://www.linkedin.com/in/recruiter'>Poster</a>
     <script type='application/ld+json'>{"@type":"JobPosting","hiringOrganization":{"url":"https://acme.example/contact"}}</script>"""
     assert LinkedInAdapter().public_contact_pages(html, "https://www.linkedin.com/jobs/view/1") == (
-        ("public_poster", "https://www.linkedin.com/in/recruiter"),
-        ("company_site", "https://acme.example/contact"),
+        ("recruiter_linkedin_profile", "https://www.linkedin.com/in/recruiter"),
+        ("company_website", "https://acme.example/contact"),
+    )
+
+
+def test_company_profile_can_link_to_its_explicit_contact_page():
+    html = "<a href='https://acme.example/contact'>Nous contacter</a>"
+    assert LinkedInAdapter().public_contact_pages(html, "https://www.linkedin.com/company/acme") == (
+        ("company_contact_page", "https://acme.example/contact"),
     )

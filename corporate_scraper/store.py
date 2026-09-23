@@ -15,7 +15,7 @@ from .extraction import requirement_summary
 from .text import description_text
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 class StudyStore:
@@ -112,6 +112,7 @@ class StudyStore:
             for column, definition in (
                 ("contact_email", "TEXT"), ("contact_level", "TEXT"), ("contact_url", "TEXT"),
                 ("contact_status", "TEXT NOT NULL DEFAULT 'not_requested'"), ("contact_checked_at", "TEXT"),
+                ("contact_confidence", "INTEGER"),
             ):
                 if column not in columns:
                     connection.execute(f"ALTER TABLE offers ADD COLUMN {column} {definition}")
@@ -242,13 +243,16 @@ class StudyStore:
                 raise
 
     def commit_contact(self, run_id: str, offer_key: str, *, status: str, email: str | None = None,
-                       level: str | None = None, url: str | None = None, source: str | None = None) -> None:
+                       level: str | None = None, url: str | None = None, confidence: int | None = None,
+                       source: str | None = None) -> None:
         """Persist the outcome of an optional public-contact check."""
         if status not in {"found", "not_found", "unavailable", "not_requested"}:
             raise ValueError(f"Unknown contact status: {status}")
+        if confidence is not None and not 0 <= confidence <= 100:
+            raise ValueError("Contact confidence must be between 0 and 100")
         with self._connection() as connection:
-            query = "UPDATE offers SET contact_email = ?, contact_level = ?, contact_url = ?, contact_status = ?, contact_checked_at = ? WHERE run_id = ? AND source_key = ?"
-            parameters: tuple[object, ...] = (email, level, url, status, self._now(), run_id, offer_key)
+            query = "UPDATE offers SET contact_email = ?, contact_level = ?, contact_url = ?, contact_confidence = ?, contact_status = ?, contact_checked_at = ? WHERE run_id = ? AND source_key = ?"
+            parameters: tuple[object, ...] = (email, level, url, confidence, status, self._now(), run_id, offer_key)
             if source:
                 query += " AND source = ?"
                 parameters += (source,)

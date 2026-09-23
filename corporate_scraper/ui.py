@@ -825,7 +825,8 @@ class ResultsPage(QWidget):
             f"<p><b>Contrat:</b> {escape(offer.contract)}<br><b>Expérience:</b> {escape(offer.experience)}<br>"
             f"<b>Niveau / diplôme:</b> {escape(offer.education)}<br>"
             f"<b>Email de contact:</b> {escape(offer.contact_email or 'Non trouvé')}<br>"
-            f"<b>Vérification contact:</b> {escape(offer.contact_status)} {('· ' + escape(offer.contact_level)) if offer.contact_level else ''}<br>"
+            f"<b>Vérification contact:</b> {escape(offer.contact_status)} {('· ' + escape(offer.contact_level)) if offer.contact_level else ''}"
+            f"{(' · confiance ' + str(offer.contact_confidence) + '%') if offer.contact_confidence is not None else ''}<br>"
             f"<b>État:</b> {offer.description_status} · Cible: {offer.qualification} · {offer.quality}</p>"
             f"<h3>Compétences</h3><p>{escape(', '.join(offer.skills))}</p><h3>Description</h3><p>{description}</p>"
             f"<h3>Éléments de preuve</h3><ul>{evidence}</ul><p><a href='{escape(offer.url, quote=True)}'>Ouvrir l’offre originale</a></p>"
@@ -1003,7 +1004,7 @@ class MainWindow(QMainWindow):
                 qualification=row["qualification_status"], record_id=row["id"],
                 education=row["education"] or "Non indiqué",
                 contact_email=row["contact_email"] or "", contact_status=row["contact_status"] or "not_requested",
-                contact_level=row["contact_level"] or "",
+                contact_level=row["contact_level"] or "", contact_confidence=row["contact_confidence"],
             ))
         self.current_run_id = run_id
         self.results_page.load_offers(offers, persisted=True)

@@ -200,9 +200,16 @@ class CollectionRunner:
         direct = public_email(description or detail_html, "job_post", offer["canonical_url"])
         if direct:
             self.store.commit_contact(run_id, offer["source_key"], status="found", email=direct.email,
-                                      level=direct.level, url=direct.url, source=offer["source"])
+                                      level=direct.level, url=direct.url, confidence=direct.confidence, source=offer["source"])
             return attempts, None, f"{offer['source']}: public email found in job post"
-        for level, url in adapter.public_contact_pages(detail_html, offer["canonical_url"]):
+        pages = list(adapter.public_contact_pages(detail_html, offer["canonical_url"]))
+        visited = {offer["canonical_url"]}
+        checked_pages = 0
+        while pages and checked_pages < 4:
+            level, url = pages.pop(0)
+            if url in visited:
+                continue
+            visited.add(url)
             state = self._contact_terminal_state(spec, stopper, attempts, deadline, pause_event)
             if state:
                 self.store.commit_contact(run_id, offer["source_key"], status="unavailable", source=offer["source"])
@@ -214,13 +221,17 @@ class CollectionRunner:
             response = fetch_detail(adapter, url)
             self._last_request[offer["source"]] = monotonic()
             attempts += 1
+            checked_pages += 1
             if response.outcome.kind is not FetchOutcomeKind.SUCCESS or not response.html:
                 continue
             found = public_email(response.html, level, url)
             if found:
                 self.store.commit_contact(run_id, offer["source_key"], status="found", email=found.email,
-                                          level=found.level, url=found.url, source=offer["source"])
+                                          level=found.level, url=found.url, confidence=found.confidence, source=offer["source"])
                 return attempts, None, f"{offer['source']}: public email found via {level}"
+            for next_level, next_url in adapter.public_contact_pages(response.html, url):
+                if next_url not in visited and all(known_url != next_url for _, known_url in pages):
+                    pages.append((next_level, next_url))
         self.store.commit_contact(run_id, offer["source_key"], status="not_found", source=offer["source"])
         return attempts, None, f"{offer['source']}: no public contact email found"
 

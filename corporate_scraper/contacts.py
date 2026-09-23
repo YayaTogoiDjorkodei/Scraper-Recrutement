@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import html
 import re
+from urllib.parse import urlsplit
 
 from .text import description_text
 
@@ -18,6 +19,16 @@ class PublicContact:
     email: str
     level: str
     url: str
+    confidence: int
+
+
+SOURCE_CONFIDENCE = {
+    "job_post": 100,
+    "recruiter_linkedin_profile": 88,
+    "company_linkedin_profile": 85,
+    "company_website": 82,
+    "company_contact_page": 90,
+}
 
 
 def public_email(text_or_html: str, level: str, url: str) -> PublicContact | None:
@@ -28,5 +39,10 @@ def public_email(text_or_html: str, level: str, url: str) -> PublicContact | Non
         email = match.group(0).rstrip(".,;:!?)]]}").casefold()
         local_part = email.partition("@")[0]
         if local_part not in IGNORED_LOCAL_PARTS:
-            return PublicContact(email, level, url)
+            confidence = SOURCE_CONFIDENCE.get(level, 70)
+            email_domain = email.rsplit("@", 1)[1]
+            page_domain = urlsplit(url).hostname or ""
+            if page_domain.casefold().removeprefix("www.") == email_domain.casefold().removeprefix("www."):
+                confidence = min(100, confidence + 7)
+            return PublicContact(email, level, url, confidence)
     return None

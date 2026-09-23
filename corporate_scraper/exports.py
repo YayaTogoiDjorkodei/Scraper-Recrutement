@@ -79,11 +79,11 @@ def export_study(store: StudyStore, run_id: str, destination: str | Path, includ
     jobs.title = "IT Jobs Data"
     jobs.append(["Entreprise", "Poste", "Ville / région", "Compétences", "Niveau / diplôme", "Expérience indiquée",
                  "Contrat", "Langues", "Correspondance aux filtres", "Source", "Publication", "Offre originale", "Description", "Identifiant",
-                 "Email de contact", "État contact", "Origine email"])
+                 "Email de contact", "État contact", "Origine email", "Confiance email"])
     requirements = workbook.create_sheet("Requirements")
     requirements.append(["Entreprise", "Poste", "Source", "Champ", "Valeur", "Extrait justificatif", "Méthode", "Score", "Version", "Identifiant"])
     contacts = workbook.create_sheet("Contacts")
-    contacts.append(["Identifiant", "Entreprise", "Poste", "Email de contact", "État", "Origine", "Page vérifiée"])
+    contacts.append(["Identifiant", "Entreprise", "Poste", "Email de contact", "État", "Origine", "Confiance", "Page vérifiée"])
     descriptions = workbook.create_sheet("Descriptions") if include_descriptions else None
     if descriptions is not None:
         descriptions.append(["Identifiant", "Entreprise", "Poste", "Partie", "Description complète"])
@@ -114,12 +114,13 @@ def export_study(store: StudyStore, run_id: str, destination: str | Path, includ
         jobs.cell(jobs.max_row, 15, _safe(offer["contact_email"] or "Non trouvé"))
         jobs.cell(jobs.max_row, 16, _safe(offer["contact_status"] or "not_requested"))
         jobs.cell(jobs.max_row, 17, _safe(offer["contact_level"] or "Non vérifié"))
+        jobs.cell(jobs.max_row, 18, offer["contact_confidence"] if offer["contact_confidence"] is not None else "Non évaluée")
         contacts.append([identifier, _safe(offer["company"]), _safe(offer["title"]), _safe(offer["contact_email"] or "Non trouvé"),
                          _safe(offer["contact_status"] or "not_requested"), _safe(offer["contact_level"] or "Non vérifié"),
-                         _safe(offer["contact_url"] or "")])
+                         offer["contact_confidence"] if offer["contact_confidence"] is not None else "Non évaluée", _safe(offer["contact_url"] or "")])
         if offer["contact_url"]:
-            contacts.cell(contacts.max_row, 7).hyperlink = offer["contact_url"]
-            contacts.cell(contacts.max_row, 7).font = LINK_FONT
+            contacts.cell(contacts.max_row, 8).hyperlink = offer["contact_url"]
+            contacts.cell(contacts.max_row, 8).font = LINK_FONT
         if descriptions is not None and text:
             first_row = descriptions.max_row + 1
             chunks = _description_chunks(text)
@@ -145,9 +146,9 @@ def export_study(store: StudyStore, run_id: str, destination: str | Path, includ
             requirements.append([_safe(offer["company"] or "Unknown"), _safe(offer["title"]), _safe(offer["source"]),
                                  _safe(item["field"]), _safe(item["value"]), _safe(description_text(item["excerpt"])), _safe(item["method"]),
                                  item["score"], _safe(item["rule_version"]), identifier])
-    _style_table(jobs, "Jobs", {"A": 26, "B": 38, "C": 23, "D": 42, "E": 28, "F": 34, "G": 20, "H": 23, "I": 25, "J": 14, "K": 20, "L": 19, "M": 18, "N": 32, "O": 35, "P": 18, "Q": 22})
+    _style_table(jobs, "Jobs", {"A": 26, "B": 38, "C": 23, "D": 42, "E": 28, "F": 34, "G": 20, "H": 23, "I": 25, "J": 14, "K": 20, "L": 19, "M": 18, "N": 32, "O": 35, "P": 18, "Q": 22, "R": 18})
     _style_table(requirements, "RequirementsTable", {"A": 26, "B": 36, "C": 14, "D": 23, "E": 32, "F": 105, "G": 14, "H": 12, "I": 14, "J": 32})
-    _style_table(contacts, "ContactsTable", {"A": 32, "B": 26, "C": 36, "D": 36, "E": 18, "F": 20, "G": 60})
+    _style_table(contacts, "ContactsTable", {"A": 32, "B": 26, "C": 36, "D": 36, "E": 18, "F": 28, "G": 14, "H": 60})
     if descriptions is not None:
         _style_table(descriptions, "DescriptionTable", {"A": 32, "B": 26, "C": 36, "D": 10, "E": 125})
         for index in range(2, descriptions.max_row + 1):
@@ -172,7 +173,7 @@ def export_study(store: StudyStore, run_id: str, destination: str | Path, includ
     info.append(["Lecture", "Non indiqué = aucune valeur explicite détectée. Vérifier l'extrait dans Requirements. Un intitulé Ingénieur ne prouve pas un diplôme."])
     info.append(["Périmètre", "Les offres Hors critères et À vérifier sont conservées. La colonne de correspondance expose le résultat des filtres."])
     info.append(["Descriptions", "Texte complet dans Descriptions, réparti en parties pour conserver les descriptions longues. Identifiant commun à toutes les feuilles."])
-    info.append(["Contacts", "Optionnelle : seules les adresses publiquement visibles dans l’offre ou sur une page publique explicitement liée sont enregistrées. Aucune adresse n’est devinée."])
+    info.append(["Contacts", "Optionnelle : offre, profil LinkedIn public du recruteur, profil LinkedIn de l’entreprise, site officiel puis page Contact explicitement liée. Le score indique la confiance liée à la source publique, pas la confirmation qu’une personne répondra. Aucune adresse n’est devinée."])
     _style_table(info, "RunInfoTable", {"A": 24, "B": 100})
     for index in range(2, info.max_row + 1):
         info.row_dimensions[index].height = 60

@@ -70,7 +70,7 @@ def test_public_contact_outcome_is_persisted(tmp_path):
     store.commit_discovery(run_id, "search:1", [offer()])
 
     store.commit_contact(run_id, "job-1", status="found", email="jobs@acme.ma", level="job_post",
-                         url="https://example.test/job-1", source="linkedin")
+                         url="https://example.test/job-1", confidence=100, source="linkedin")
 
     row = store.offers(run_id)[0]
-    assert (row["contact_email"], row["contact_status"], row["contact_level"]) == ("jobs@acme.ma", "found", "job_post")
+    assert (row["contact_email"], row["contact_status"], row["contact_level"], row["contact_confidence"]) == ("jobs@acme.ma", "found", "job_post", 100)
