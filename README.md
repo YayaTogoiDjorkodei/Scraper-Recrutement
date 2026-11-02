@@ -194,6 +194,4 @@ Points d'attention :
 
 ---
 
-## 📄 Licence
 
-À définir (ex. MIT).
